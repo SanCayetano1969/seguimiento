@@ -146,7 +146,7 @@ export default function EquipoPage() {
       {/* Header */}
       <header style={s.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={s.badge}>⚽</div>
+          <div style={s.badge}><img src="/escudo.jpeg" alt="Escudo" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /></div>
           <div>
             <div className="font-display" style={{ fontSize: 22 }}>{teamName}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 3 }}>PANEL ENTRENADOR</div>
@@ -214,7 +214,7 @@ export default function EquipoPage() {
                       <tr>
                         <th style={s.th}>Jugador</th>
                         <th style={{ ...s.th, background: 'rgba(79,195,247,0.08)', borderLeft: '2px solid rgba(79,195,247,0.2)' }} colSpan={6}>💪 Física</th>
-                        <th style={{ ...s.th, background: 'rgba(240,180,41,0.08)', borderLeft: '2px solid rgba(240,180,41,0.2)' }} colSpan={6}>⚽ Técnica</th>
+                        <th style={{ ...s.th, background: 'rgba(91,184,232,0.08)', borderLeft: '2px solid rgba(91,184,232,0.2)' }} colSpan={6}>⚽ Técnica</th>
                         <th style={{ ...s.th, background: 'rgba(56,161,105,0.08)', borderLeft: '2px solid rgba(56,161,105,0.2)' }} colSpan={4}>🧠 Táctica</th>
                         <th style={{ ...s.th, background: 'rgba(183,148,244,0.08)', borderLeft: '2px solid rgba(183,148,244,0.2)' }} colSpan={7}>🧘 Psicológica</th>
                         <th style={s.th}>Min.</th>
@@ -223,7 +223,7 @@ export default function EquipoPage() {
                       <tr>
                         <th style={s.th2}></th>
                         {FISICA_FIELDS.map(f => <th key={f} style={{ ...s.th2, background: 'rgba(79,195,247,0.04)' }} title={FIELD_LABELS[f]}>{FIELD_LABELS[f].substring(0,3)}</th>)}
-                        {TEC_FIELDS.map(f => <th key={f} style={{ ...s.th2, background: 'rgba(240,180,41,0.04)' }} title={FIELD_LABELS[f]}>{f.toUpperCase()}</th>)}
+                        {TEC_FIELDS.map(f => <th key={f} style={{ ...s.th2, background: 'rgba(91,184,232,0.04)' }} title={FIELD_LABELS[f]}>{f.toUpperCase()}</th>)}
                         {TAC_FIELDS.map(f => <th key={f} style={{ ...s.th2, background: 'rgba(56,161,105,0.04)' }} title={FIELD_LABELS[f]}>{f.toUpperCase()}</th>)}
                         {PSICO_FIELDS.map(f => <th key={f} style={{ ...s.th2, background: 'rgba(183,148,244,0.04)' }} title={FIELD_LABELS[f]}>{FIELD_LABELS[f].substring(0,3)}</th>)}
                         <th style={s.th2}></th>
@@ -368,7 +368,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   badge: {
     width: 44, height: 44, background: 'var(--navy)', border: '2px solid var(--gold)',
-    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
   },
   statPill: {
     background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -429,7 +429,7 @@ const s: Record<string, React.CSSProperties> = {
     color: 'var(--text)', textAlign: 'center', outline: 'none',
   },
   btnSave: {
-    marginTop: 20, background: 'linear-gradient(135deg, var(--gold), #d4960f)',
+    marginTop: 20, background: 'linear-gradient(135deg, var(--gold), #3a9fd4)',
     color: 'var(--navy-dark)', border: 'none', borderRadius: 10,
     padding: '12px 32px', fontFamily: "'Bebas Neue'", fontSize: 16, letterSpacing: 2,
   },
