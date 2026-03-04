@@ -28,7 +28,7 @@ function sc(v: number | null) {
   return 'var(--red)'
 }
 
-const TEAM_COLORS = ['#F0B429','#4FC3F7','#68D391','#FC8181','#B794F4','#FBD38D','#81E6D9','#F6AD55','#63B3ED','#F687B3','#68D391','#FEB2B2']
+const TEAM_COLORS = ['#5bb8e8','#4FC3F7','#68D391','#FC8181','#B794F4','#FBD38D','#81E6D9','#F6AD55','#63B3ED','#F687B3','#68D391','#FEB2B2']
 
 export default function ClubPage() {
   const router = useRouter()
@@ -97,7 +97,7 @@ export default function ClubPage() {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 40 }}>⚽</div>
+      <img src="/escudo.jpeg" alt="Escudo" style={{width:60,height:60,borderRadius:"50%",objectFit:"cover"}} />
       <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Cargando datos del club...</div>
     </div>
   )
@@ -107,7 +107,7 @@ export default function ClubPage() {
       {/* Header */}
       <header style={s.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={s.badge}>⚽</div>
+          <div style={s.badge}><img src="/escudo.jpeg" alt="Escudo" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /></div>
           <div>
             <div className="font-display" style={{ fontSize: 24 }}>CD San Cayetano</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 4 }}>DASHBOARD COORDINADOR · 2025/26</div>
@@ -176,7 +176,7 @@ export default function ClubPage() {
                 <PolarGrid stroke="rgba(255,255,255,0.07)" />
                 <PolarAngleAxis dataKey="area" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
                 <PolarRadiusAxis domain={[0,10]} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} tickCount={6} />
-                <Radar dataKey="val" stroke="#F0B429" fill="#F0B429" fillOpacity={0.15} strokeWidth={2} dot={{ fill: '#F0B429', r: 4 }} />
+                <Radar dataKey="val" stroke="#5bb8e8" fill="#5bb8e8" fillOpacity={0.15} strokeWidth={2} dot={{ fill: '#5bb8e8', r: 4 }} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
@@ -275,7 +275,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   badge: {
     width: 44, height: 44, background: 'var(--navy)', border: '2px solid var(--gold)',
-    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
   },
   kpiPill: {
     background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
@@ -322,7 +322,7 @@ const s: Record<string, React.CSSProperties> = {
   talentTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
   rank: { fontFamily: "'Bebas Neue'", fontSize: 24, minWidth: 24, textAlign: 'center' },
   talentBadge: {
-    background: 'rgba(240,180,41,0.15)', border: '1px solid rgba(240,180,41,0.3)',
+    background: 'rgba(91,184,232,0.15)', border: '1px solid rgba(91,184,232,0.3)',
     color: 'var(--gold)', fontSize: 9, letterSpacing: 1.5, padding: '2px 6px',
     borderRadius: 4, fontWeight: 600, textAlign: 'center', marginTop: 2,
   },
