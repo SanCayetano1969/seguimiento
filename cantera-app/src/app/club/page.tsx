@@ -84,7 +84,7 @@ export default function ClubPage() {
     return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : 0
   }
 
-  const categories = ['all', ...new Set(teams.map(t => t.category))]
+  const categories = ['all', ...Array.from(new Set(teams.map(t => t.category)))]
   const filteredTalents = activeFilter === 'all' ? talents : talents.filter(t => t.category === activeFilter)
   const radarData = [
     { area: '💪 Física',     val: globalAvg('avg_fisica')  },
