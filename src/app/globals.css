@@ -3,16 +3,16 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --navy:        #0D2B5E;
-  --navy-light:  #1a3d7c;
-  --navy-dark:   #071a3e;
-  --gold:        #F0B429;
-  --gold-dim:    rgba(240,180,41,0.15);
+  --navy:        #1a3a6b;
+  --navy-light:  #2a5298;
+  --navy-dark:   #0d1f3c;
+  --gold:        #5bb8e8;
+  --gold-dim:    rgba(91,184,232,0.15);
   --green:       #38A169;
   --green-dim:   rgba(56,161,105,0.15);
   --orange:      #DD6B20;
   --red:         #E53E3E;
-  --accent:      #4FC3F7;
+  --accent:      #89d4f5;
   --bg:          #070e1c;
   --surface:     #0e1b30;
   --surface2:    #152540;
