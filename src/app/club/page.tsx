@@ -84,7 +84,7 @@ export default function ClubPage() {
     return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : 0
   }
 
-  const categories = ['all', ...new Set(teams.map(t => t.category))]
+  const categories = ['all', ...Array.from(new Set(teams.map(t => t.category)))]
   const filteredTalents = activeFilter === 'all' ? talents : talents.filter(t => t.category === activeFilter)
   const radarData = [
     { area: '💪 Física',     val: globalAvg('avg_fisica')  },
@@ -93,7 +93,7 @@ export default function ClubPage() {
     { area: '🧘 Psicológica',val: globalAvg('avg_psico')  },
   ]
 
-  const teamNames = [...new Set(evoData.flatMap(d => Object.keys(d).filter(k => k !== 'jornada')))]
+  const teamNames = Array.from(new Set(evoData.flatMap(d => Object.keys(d).filter(k => k !== 'jornada'))))
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
