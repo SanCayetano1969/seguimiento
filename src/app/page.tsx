@@ -50,7 +50,7 @@ export default function HomePage() {
       <div style={styles.card} className="animate-fade-up">
         {/* Logo */}
         <div style={styles.logo}>
-          <div style={styles.badge}>⚽</div>
+          <div style={styles.badge}><img src="/escudo.jpeg" alt="Escudo" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /></div>
           <div>
             <div className="font-display" style={{ fontSize: 32, letterSpacing: 3 }}>
               CD San Cayetano
@@ -156,7 +156,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 26,
+    
     flexShrink: 0,
   },
   divider: {
@@ -206,7 +206,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#fc8181',
   },
   btn: {
-    background: 'linear-gradient(135deg, var(--gold) 0%, #d4960f 100%)',
+    background: 'linear-gradient(135deg, var(--gold) 0%, #3a9fd4 100%)',
     color: 'var(--navy-dark)',
     border: 'none',
     borderRadius: 10,
