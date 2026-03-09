@@ -56,7 +56,7 @@ export default function ClubPage() {
         .lte('date', format(end, 'yyyy-MM-dd'))
         .order('date').order('time'),
       supabase.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
-      supabase.from('event_requests').select('*')
+      supabase.from('event_requests').select('*, requester:app_users(name), event:events(title,date)')
         .eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('messages').select('*', { count: 'exact', head: true })
         .eq('to_user_id', session!.id).eq('read', false),
