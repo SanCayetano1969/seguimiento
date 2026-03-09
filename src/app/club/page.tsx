@@ -292,9 +292,9 @@ function RequestCard({ req, onResolve }: { req: any; onResolve: (id: string, res
 
   return (
     <div className="card" style={{ borderColor: 'var(--orange-dim)', borderWidth: 1.5 }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{req.events?.title}</div>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{req.event_title || req.events?.title}</div>
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-        {req.app_users?.name} · {req.events?.date}
+        {req.requester_name || req.app_users?.name} · {req.event_date || req.events?.date}
       </div>
       <p style={{ fontSize: 13, color: 'var(--text)', marginBottom: 12, background: 'var(--surface2)', padding: 8, borderRadius: 8 }}>{req.message}</p>
       {!open ? (
