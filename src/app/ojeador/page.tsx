@@ -79,7 +79,7 @@ export default function OjeadorPage() {
   }
 
   // Years available
-  const years = [...new Set(players.map(p => p.birth_year))].sort((a, b) => b - a)
+  const years = Array.from(new Set(players.map(p => p.birth_year))).sort((a, b) => b - a)
   const filtered = filterYear ? players.filter(p => p.birth_year === filterYear) : players
 
   if (!session) return null
