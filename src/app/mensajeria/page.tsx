@@ -204,7 +204,7 @@ export default function MensajeriaPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: unread > 0 ? 700 : 500, fontSize: 14 }}>{u.name}</span>
+                    <span style={{ fontWeight: unread > 0 ? 700 : 500, fontSize: 14, color: 'var(--text)' }}>{u.name}</span>
                     {last && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                       {format(parseISO(last.created_at), "HH:mm")}
                     </span>}
