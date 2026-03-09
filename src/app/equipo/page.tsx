@@ -35,6 +35,12 @@ function EquipoContent() {
   const [saving, setSaving]     = useState(false)
   const [noteText, setNoteText] = useState('')
   const [addingNote, setAddingNote] = useState(false)
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [newPlayer, setNewPlayer] = useState({ name: '', dorsal: '', position: '', birth_year: '' })
+  const [savingPlayer, setSavingPlayer] = useState(false)
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [newPlayer, setNewPlayer] = useState({ name: '', dorsal: '', position: '', birth_year: '' })
+  const [savingPlayer, setSavingPlayer] = useState(false)
   const canEdit = canEditEval(session?.role || 'coach')
   const canMeetings = canSeePrivateNotes(session?.role || 'coach')
   const canPsych = canSeePsychNotes(session?.role || 'coach')
@@ -46,11 +52,29 @@ function EquipoContent() {
     loadTeamData(id)
   }, [teamId])
 
+  async function saveNewPlayer() {
+    if (!newPlayer.name.trim() || !team) return
+    setSavingPlayer(true)
+    const res = await supabase.from('players').insert({
+      name: newPlayer.name.trim(),
+      dorsal: newPlayer.dorsal ? parseInt(newPlayer.dorsal) : null,
+      position: newPlayer.position || null,
+      birth_year: newPlayer.birth_year ? parseInt(newPlayer.birth_year) : null,
+      team_id: team.id
+    })
+    if (!res.error) {
+      setShowAddPlayer(false)
+      setNewPlayer({ name: '', dorsal: '', position: '', birth_year: '' })
+      loadTeamData(team.id)
+    }
+    setSavingPlayer(false)
+  }
+
   async function loadTeamData(id: string) {
     setLoading(true)
     const [{ data: t }, { data: pl }, { data: j }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
-      supabase.from('players').select('*').eq('team_id', id).eq('active', true).order('dorsal'),
+      supabase.from('players').select('*').eq('team_id', id).order('dorsal'),
       supabase.from('jornadas').select('*').eq('team_id', id).order('number'),
     ])
     setTeam(t)
