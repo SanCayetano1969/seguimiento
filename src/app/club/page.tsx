@@ -1,332 +1,314 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSession, clearSession, scoreColor, type Announcement } from '@/lib/supabase'
+import BottomNav from '@/components/BottomNav'
 import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  LineChart, Line, XAxis, YAxis, Tooltip, Legend,
-  ResponsiveContainer, CartesianGrid,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer
 } from 'recharts'
+import { format, parseISO, startOfWeek, addDays, addWeeks, isSameDay } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 type TeamOverview = {
-  team_id: string; team_name: string; category: string; coach_name: string
+  team_id: string; team_name: string; category: string; modalidad: string
   total_players: number; total_evaluations: number
   avg_fisica: number; avg_tecnica: number; avg_tactica: number; avg_psico: number; avg_global: number
 }
-type Talent = {
-  player_id: string; player_name: string; dorsal: number; position: string
-  team_name: string; category: string
-  avg_fisica: number; avg_tecnica: number; avg_tactica: number; avg_psico: number; avg_global: number
-}
-type EvoPoint = { jornada: number; [team: string]: number }
 
-function sc(v: number | null) {
-  if (!v) return 'var(--text-muted)'
-  if (v >= 8) return 'var(--green)'
-  if (v >= 6) return 'var(--gold)'
-  if (v >= 4) return 'var(--orange)'
-  return 'var(--red)'
-}
-
-const TEAM_COLORS = ['#5bb8e8','#4FC3F7','#68D391','#FC8181','#B794F4','#FBD38D','#81E6D9','#F6AD55','#63B3ED','#F687B3','#68D391','#FEB2B2']
+const TEAM_COLORS = ['#5bb8e8','#68D391','#FC8181','#B794F4','#FBD38D','#81E6D9','#F6AD55']
 
 export default function ClubPage() {
   const router = useRouter()
+  const session = getSession()
+
   const [teams, setTeams]       = useState<TeamOverview[]>([])
-  const [talents, setTalents]   = useState<Talent[]>([])
-  const [evoData, setEvoData]   = useState<EvoPoint[]>([])
+  const [events, setEvents]     = useState<any[]>([])
+  const [announcements, setAnn] = useState<Announcement[]>([])
+  const [requests, setRequests] = useState<any[]>([])
+  const [unread, setUnread]     = useState(0)
   const [loading, setLoading]   = useState(true)
-  const [activeFilter, setActiveFilter] = useState('all')
+  const [tab, setTab]           = useState<'overview'|'agenda'|'anuncios'>('overview')
+  const [showAnnModal, setShowAnnModal] = useState(false)
+  const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
 
   useEffect(() => {
-    const role = sessionStorage.getItem('role')
-    if (role !== 'admin') { router.push('/'); return }
-    loadAll()
-  }, [router])
+    if (!session) { router.push('/'); return }
+    if (!['admin', 'coordinator'].includes(session.role)) { router.push('/dashboard'); return }
+    loadData()
+  }, [])
 
-  async function loadAll() {
+  async function loadData() {
     setLoading(true)
-    const [{ data: tData }, { data: talData }, { data: evoRaw }] = await Promise.all([
-      supabase.from('club_overview').select('*').order('avg_global', { ascending: false }),
-      supabase.from('talent_radar').select('*'),
-      supabase.from('evaluations')
-        .select('team_id, jornada_id, media_fisica, media_tecnica, media_tactica, media_psico, jornadas(number, team_id, teams(name))')
-        .order('jornada_id'),
-    ])
-    setTeams(tData || [])
-    setTalents(talData || [])
+    const today = new Date()
+    const end = addWeeks(today, 5)
 
-    // Build evolution data
-    if (evoRaw) {
-      const byJornada: Record<number, Record<string, number[]>> = {}
-      evoRaw.forEach((e: any) => {
-        const j = e.jornadas?.number
-        const tName = e.jornadas?.teams?.name
-        if (!j || !tName) return
-        if (!byJornada[j]) byJornada[j] = {}
-        if (!byJornada[j][tName]) byJornada[j][tName] = []
-        const mg = [e.media_fisica, e.media_tecnica, e.media_tactica, e.media_psico].filter(Boolean)
-        if (mg.length) byJornada[j][tName].push(mg.reduce((a,b) => a+b,0) / mg.length)
-      })
-      const points: EvoPoint[] = Object.entries(byJornada)
-        .sort(([a],[b]) => Number(a)-Number(b))
-        .map(([j, teams]) => ({
-          jornada: Number(j),
-          ...Object.fromEntries(Object.entries(teams).map(([t, vals]) => [t, Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10]))
-        }))
-      setEvoData(points)
-    }
+    const [
+      { data: tData },
+      { data: evData },
+      { data: annData },
+      { data: reqData },
+      { count: unreadCount },
+    ] = await Promise.all([
+      supabase.from('club_overview').select('*').order('avg_global', { ascending: false }),
+      supabase.from('events').select('*, teams(name,category)')
+        .gte('date', format(today, 'yyyy-MM-dd'))
+        .lte('date', format(end, 'yyyy-MM-dd'))
+        .order('date').order('time'),
+      supabase.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('event_requests').select('*, app_users(name), events(title,date)')
+        .eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.from('messages').select('*', { count: 'exact', head: true })
+        .eq('to_user_id', session!.id).eq('read', false),
+    ])
+
+    setTeams(tData || [])
+    setEvents(evData || [])
+    setAnn(annData || [])
+    setRequests(reqData || [])
+    setUnread(unreadCount || 0)
     setLoading(false)
   }
 
-  const globalAvg = (key: keyof TeamOverview) => {
-    const vals = teams.map(t => t[key] as number).filter(v => v > 0)
-    return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10 : 0
+  async function postAnnouncement() {
+    if (!annForm.title.trim() || !annForm.content.trim()) return
+    await supabase.from('announcements').insert({
+      title: annForm.title, content: annForm.content,
+      pinned: annForm.pinned, author_id: session!.id, author_name: session!.name
+    })
+    setShowAnnModal(false)
+    setAnnForm({ title: '', content: '', pinned: false })
+    loadData()
   }
 
-  const categories = ['all', ...Array.from(new Set(teams.map(t => t.category)))]
-  const filteredTalents = activeFilter === 'all' ? talents : talents.filter(t => t.category === activeFilter)
+  async function resolveRequest(reqId: string, response: string) {
+    await supabase.from('event_requests').update({
+      status: 'resolved', response, resolved_by: session!.id, resolved_at: new Date().toISOString()
+    }).eq('id', reqId)
+    loadData()
+  }
+
+  if (!session) return null
+
+  const avgGlobal = teams.length > 0
+    ? (teams.reduce((s, t) => s + (t.avg_global || 0), 0) / teams.length).toFixed(1)
+    : '—'
+
   const radarData = [
-    { area: '💪 Física',     val: globalAvg('avg_fisica')  },
-    { area: '⚽ Técnica',    val: globalAvg('avg_tecnica') },
-    { area: '🧠 Táctica',   val: globalAvg('avg_tactica') },
-    { area: '🧘 Psicológica',val: globalAvg('avg_psico')  },
+    { area: 'Física',    value: +(teams.reduce((s,t) => s+(t.avg_fisica||0), 0)/Math.max(teams.length,1)).toFixed(1) },
+    { area: 'Técnica',   value: +(teams.reduce((s,t) => s+(t.avg_tecnica||0), 0)/Math.max(teams.length,1)).toFixed(1) },
+    { area: 'Táctica',   value: +(teams.reduce((s,t) => s+(t.avg_tactica||0), 0)/Math.max(teams.length,1)).toFixed(1) },
+    { area: 'Psicológ.', value: +(teams.reduce((s,t) => s+(t.avg_psico||0), 0)/Math.max(teams.length,1)).toFixed(1) },
   ]
 
-  const teamNames = Array.from(new Set(evoData.flatMap(d => Object.keys(d).filter(k => k !== 'jornada'))))
-
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-      <img src="/escudo.jpeg" alt="Escudo" style={{width:60,height:60,borderRadius:"50%",objectFit:"cover"}} />
-      <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Cargando datos del club...</div>
-    </div>
-  )
-
   return (
-    <div style={s.page}>
+    <div className="page-content">
       {/* Header */}
-      <header style={s.header}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={s.badge}><img src="/escudo.jpeg" alt="Escudo" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /></div>
+      <div className="page-header" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src="/escudo.jpeg" alt="" style={{ width: 28, height: 28, borderRadius: '50%' }} />
           <div>
-            <div className="font-display" style={{ fontSize: 24 }}>CD San Cayetano</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 4 }}>DASHBOARD COORDINADOR · 2025/26</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }} className="font-display">CD SAN CAYETANO</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Panel de coordinación</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {[
-            { label: 'Equipos', val: teams.length },
-            { label: 'Jugadores', val: teams.reduce((s,t) => s + t.total_players, 0) },
-            { label: 'Media club', val: globalAvg('avg_global') },
-            { label: 'Talentos', val: talents.length },
-          ].map(k => (
-            <div key={k.label} style={s.kpiPill}>
-              <span style={{ fontFamily: "'Bebas Neue'", fontSize: 18, color: 'var(--gold)' }}>{k.val}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>{k.label}</span>
-            </div>
-          ))}
-          <button style={s.btnLogout} onClick={() => { sessionStorage.clear(); router.push('/') }}>Salir</button>
-        </div>
-      </header>
-
-      <main style={s.main}>
-
-        {/* Row 1: Teams table + Radar */}
-        <div style={s.row2}>
-          <div style={s.card}>
-            <div style={s.cardTitle}>Rendimiento por Equipo <span style={s.tag}>ÚLTIMA EVALUACIÓN</span></div>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  {['Equipo','Jugadores','💪','⚽','🧠','🧘','⭐ Media'].map(h => (
-                    <th key={h} style={s.th}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map((t, i) => (
-                  <tr key={t.team_id} style={s.tr}>
-                    <td style={{ ...s.td, fontWeight: 600 }}>
-                      <span style={{ color: TEAM_COLORS[i % TEAM_COLORS.length], marginRight: 6 }}>●</span>
-                      {t.team_name}
-                    </td>
-                    <td style={{ ...s.td, fontFamily: "'DM Mono'", fontSize: 12, textAlign: 'center' }}>{t.total_players}</td>
-                    {[t.avg_fisica, t.avg_tecnica, t.avg_tactica, t.avg_psico].map((v, vi) => (
-                      <td key={vi} style={{ ...s.td, textAlign: 'center' }}>
-                        <div style={s.scoreWrap}>
-                          <div style={s.scoreBar}><div style={{ ...s.scoreBarFill, width: `${(v||0)*10}%`, background: sc(v) }} /></div>
-                          <span style={{ fontFamily: "'DM Mono'", fontSize: 11, color: sc(v), minWidth: 26 }}>{v || '—'}</span>
-                        </div>
-                      </td>
-                    ))}
-                    <td style={{ ...s.td, fontFamily: "'Bebas Neue'", fontSize: 22, color: sc(t.avg_global), textAlign: 'center' }}>
-                      {t.avg_global || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {teams.length === 0 && <div style={s.empty}>Sin datos aún. Los entrenadores deben registrar jornadas.</div>}
-          </div>
-
-          <div style={s.card}>
-            <div style={s.cardTitle}>Perfil de la Cantera <span style={s.tag}>RADAR</span></div>
-            <ResponsiveContainer width="100%" height={280}>
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="rgba(255,255,255,0.07)" />
-                <PolarAngleAxis dataKey="area" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} />
-                <PolarRadiusAxis domain={[0,10]} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} tickCount={6} />
-                <Radar dataKey="val" stroke="#5bb8e8" fill="#5bb8e8" fillOpacity={0.15} strokeWidth={2} dot={{ fill: '#5bb8e8', r: 4 }} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Row 2: Evolution chart */}
-        <div style={s.card}>
-          <div style={s.cardTitle}>Evolución Global por Jornadas <span style={s.tag}>TODOS LOS EQUIPOS</span></div>
-          {evoData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={evoData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="jornada" tickFormatter={v => `J${v}`} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis domain={[4, 10]} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-                  labelFormatter={v => `Jornada ${v}`}
-                />
-                <Legend wrapperStyle={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }} />
-                {teamNames.map((t, i) => (
-                  <Line key={t} type="monotone" dataKey={t} stroke={TEAM_COLORS[i % TEAM_COLORS.length]}
-                    strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={s.empty}>Los datos de evolución aparecerán cuando los entrenadores registren varias jornadas.</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {requests.length > 0 && (
+            <span className="badge" style={{ background: 'var(--orange-dim)', color: 'var(--orange)' }}>
+              {requests.length} solicitud{requests.length > 1 ? 'es' : ''}
+            </span>
           )}
+          <button className="btn btn-ghost btn-sm" onClick={() => { clearSession(); router.push('/') }}>Salir</button>
         </div>
+      </div>
 
-        {/* Row 3: Talent radar */}
-        <div style={s.card}>
-          <div style={s.cardTitle}>
-            Radar de Talentos
-            <span style={s.tag}>MEDIA ≥ 7.0</span>
-          </div>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-            {categories.map(c => (
-              <button key={c} style={{ ...s.filterTab, ...(activeFilter === c ? s.filterTabActive : {}) }}
-                onClick={() => setActiveFilter(c)}>
-                {c === 'all' ? '🌟 Todos' : c}
-              </button>
-            ))}
-          </div>
-          {filteredTalents.length === 0 ? (
-            <div style={s.empty}>
-              {talents.length === 0
-                ? 'Aún no hay jugadores con suficientes evaluaciones registradas.'
-                : 'No hay talentos en esta categoría todavía.'}
-            </div>
-          ) : (
-            <div style={s.talentGrid}>
-              {filteredTalents.map((t, i) => (
-                <div key={t.player_id} style={s.talentCard}>
-                  <div style={s.talentTop}>
-                    <span style={{ ...s.rank, color: i === 0 ? 'var(--gold)' : i === 1 ? '#a0aec0' : i === 2 ? '#c05621' : 'var(--text-muted)' }}>
-                      {i + 1}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.player_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{t.team_name} · {t.position}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: "'Bebas Neue'", fontSize: 28, color: sc(t.avg_global), lineHeight: 1 }}>{t.avg_global}</div>
-                      {t.avg_global >= 8 && <div style={s.talentBadge}>✦ TOP</div>}
-                    </div>
-                  </div>
-                  <div style={s.talentBars}>
-                    {[['💪', t.avg_fisica, '#4FC3F7'], ['⚽', t.avg_tecnica, 'var(--gold)'], ['🧠', t.avg_tactica, 'var(--green)'], ['🧘', t.avg_psico, '#b794f4']].map(([icon, val, color]) => (
-                      <div key={icon as string} style={s.miniBar}>
-                        <span style={{ fontSize: 10 }}>{icon as string}</span>
-                        <div style={{ flex: 1, height: 3, background: 'var(--surface3)', borderRadius: 2, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${(val as number||0)*10}%`, background: color as string, borderRadius: 2 }} />
-                        </div>
-                        <span style={{ fontSize: 10, fontFamily: "'DM Mono'", color: color as string, minWidth: 22 }}>{val}</span>
-                      </div>
-                    ))}
-                  </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8 }}>
+        {(['overview','agenda','anuncios'] as const).map(t => (
+          <button key={t} className={`btn btn-sm ${tab === t ? 'btn-gold' : 'btn-ghost'}`} onClick={() => setTab(t)}>
+            {t === 'overview' ? '📊 Resumen' : t === 'agenda' ? '📅 Agenda' : '📢 Tablón'}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="empty-state"><div className="loader animate-spin" /></div>
+      ) : (
+        <>
+          {/* ─── OVERVIEW ─── */}
+          {tab === 'overview' && (
+            <>
+              {/* KPIs */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '16px 16px 0' }}>
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--gold)' }}>{teams.length}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Equipos</div>
                 </div>
-              ))}
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: scoreColor(+avgGlobal) }}>{avgGlobal}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Media global</div>
+                </div>
+              </div>
+
+              {/* Radar club */}
+              {radarData.some(d => d.value > 0) && (
+                <div className="card" style={{ margin: '12px 16px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>Perfil global del club</div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="var(--border)" />
+                      <PolarAngleAxis dataKey="area" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                      <Radar dataKey="value" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Tabla equipos */}
+              <div className="section-title">Equipos</div>
+              <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {teams.map((t, i) => (
+                  <button
+                    key={t.team_id}
+                    className="card"
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    onClick={() => router.push(`/equipo?team=${t.team_id}`)}
+                  >
+                    <div style={{ width: 4, height: 40, borderRadius: 2, background: TEAM_COLORS[i % TEAM_COLORS.length], flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{t.team_name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.total_players} jugadores · {t.total_evaluations} evaluaciones</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: 18, color: scoreColor(t.avg_global) }}>{t.avg_global?.toFixed(1) || '—'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>media</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Solicitudes pendientes */}
+              {requests.length > 0 && (
+                <>
+                  <div className="section-title">⚠️ Solicitudes de cambio pendientes</div>
+                  <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {requests.map((r: any) => (
+                      <RequestCard key={r.id} req={r} onResolve={resolveRequest} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* ─── AGENDA ─── */}
+          {tab === 'agenda' && (
+            <div style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <button className="btn btn-gold btn-sm" onClick={() => router.push('/agenda')}>
+                  + Gestionar agenda
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {events.slice(0, 15).map((ev: any) => (
+                  <div key={ev.id} className="card-sm" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span className={`badge event-${ev.type}`}>{ev.type === 'partido' ? '⚽' : ev.type === 'entrenamiento' ? '🏃' : '🏆'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{ev.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {format(parseISO(ev.date), 'EEEE d MMM', { locale: es })}
+                        {ev.time ? ` · ${ev.time.slice(0,5)}h` : ''}
+                        {ev.teams ? ` · ${ev.teams.name}` : ' · Club'}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {events.length === 0 && <div className="empty-state"><div className="icon">📅</div><div>Sin eventos próximos</div></div>}
+              </div>
             </div>
           )}
-        </div>
 
-      </main>
+          {/* ─── TABLÓN ─── */}
+          {tab === 'anuncios' && (
+            <div style={{ padding: '16px' }}>
+              <button className="btn btn-gold btn-full" style={{ marginBottom: 16 }} onClick={() => setShowAnnModal(true)}>
+                + Nuevo anuncio
+              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {announcements.map(a => (
+                  <div key={a.id} className="card" style={a.pinned ? { borderColor: 'var(--gold)' } : {}}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.pinned ? '📌 ' : ''}{a.title}</div>
+                      <button className="btn btn-danger btn-sm" onClick={async () => {
+                        await supabase.from('announcements').delete().eq('id', a.id)
+                        loadData()
+                      }}>✕</button>
+                    </div>
+                    <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{a.content}</p>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
+                      {a.author_name} · {format(parseISO(a.created_at), "d MMM HH:mm", { locale: es })}
+                    </div>
+                  </div>
+                ))}
+                {announcements.length === 0 && <div className="empty-state"><div className="icon">📢</div><div>Sin anuncios</div></div>}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Modal nuevo anuncio */}
+      {showAnnModal && (
+        <div className="modal-overlay" onClick={() => setShowAnnModal(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <h3 style={{ fontWeight: 700, marginBottom: 16 }}>Nuevo anuncio</h3>
+            <label className="label">Título</label>
+            <input className="input" style={{ marginBottom: 12 }} value={annForm.title}
+              onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Título del anuncio" />
+            <label className="label">Contenido</label>
+            <textarea className="input" rows={4} style={{ marginBottom: 12 }} value={annForm.content}
+              onChange={e => setAnnForm(f => ({ ...f, content: e.target.value }))} placeholder="Escribe el anuncio..." />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-muted)', marginBottom: 16, cursor: 'pointer' }}>
+              <input type="checkbox" checked={annForm.pinned} onChange={e => setAnnForm(f => ({ ...f, pinned: e.target.checked }))} />
+              📌 Fijar en lo alto
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-ghost btn-full" onClick={() => setShowAnnModal(false)}>Cancelar</button>
+              <button className="btn btn-gold btn-full" onClick={postAnnouncement}>Publicar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <BottomNav role={session.role} unreadMessages={unread} pendingRequests={requests.length} />
     </div>
   )
 }
 
-const s: Record<string, React.CSSProperties> = {
-  page: { minHeight: '100vh' },
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '16px 32px', background: 'rgba(7,14,28,0.95)', backdropFilter: 'blur(20px)',
-    borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 100,
-  },
-  badge: {
-    width: 44, height: 44, background: 'var(--navy)', border: '2px solid var(--gold)',
-    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', 
-  },
-  kpiPill: {
-    background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
-    padding: '6px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-  },
-  btnLogout: {
-    background: 'transparent', border: '1px solid var(--border)',
-    borderRadius: 8, padding: '6px 14px', fontSize: 12, color: 'var(--text-muted)',
-  },
-  main: { padding: '28px 32px', maxWidth: 1600, margin: '0 auto' },
-  row2: { display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 16, marginBottom: 16 },
-  card: {
-    background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-    padding: '22px 24px', marginBottom: 16,
-  },
-  cardTitle: {
-    fontFamily: "'Bebas Neue'", fontSize: 18, letterSpacing: 2, marginBottom: 18,
-    display: 'flex', alignItems: 'center', gap: 10,
-  },
-  tag: {
-    fontFamily: "'DM Mono'", fontSize: 10, background: 'var(--surface3)',
-    padding: '3px 8px', borderRadius: 4, color: 'var(--text-muted)', letterSpacing: 1,
-  },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    padding: '8px 10px', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2,
-    color: 'var(--text-muted)', borderBottom: '1px solid var(--border)', textAlign: 'left',
-  },
-  tr: { borderBottom: '1px solid var(--border)', transition: 'background 0.15s' },
-  td: { padding: '10px 10px', fontSize: 13 },
-  scoreWrap: { display: 'flex', alignItems: 'center', gap: 6 },
-  scoreBar: { flex: 1, height: 4, background: 'var(--surface3)', borderRadius: 2, overflow: 'hidden' },
-  scoreBarFill: { height: '100%', borderRadius: 2, transition: 'width 0.6s' },
-  filterTab: {
-    background: 'transparent', border: '1px solid var(--border)', borderRadius: 20,
-    padding: '5px 14px', fontSize: 12, color: 'var(--text-muted)', transition: 'all 0.15s',
-  },
-  filterTabActive: { background: 'var(--navy)', borderColor: 'var(--navy-light)', color: 'var(--text)' },
-  talentGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 },
-  talentCard: {
-    background: 'var(--surface2)', border: '1px solid var(--border)',
-    borderRadius: 10, padding: '14px 16px', transition: 'border-color 0.2s',
-  },
-  talentTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
-  rank: { fontFamily: "'Bebas Neue'", fontSize: 24, minWidth: 24, textAlign: 'center' },
-  talentBadge: {
-    background: 'rgba(91,184,232,0.15)', border: '1px solid rgba(91,184,232,0.3)',
-    color: 'var(--gold)', fontSize: 9, letterSpacing: 1.5, padding: '2px 6px',
-    borderRadius: 4, fontWeight: 600, textAlign: 'center', marginTop: 2,
-  },
-  talentBars: { display: 'flex', flexDirection: 'column', gap: 5 },
-  miniBar: { display: 'flex', alignItems: 'center', gap: 6 },
-  empty: { textAlign: 'center', padding: '32px 20px', color: 'var(--text-muted)', fontSize: 13 },
+function RequestCard({ req, onResolve }: { req: any; onResolve: (id: string, response: string) => void }) {
+  const [response, setResponse] = useState('')
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="card" style={{ borderColor: 'var(--orange-dim)', borderWidth: 1.5 }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{req.events?.title}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+        {req.app_users?.name} · {req.events?.date}
+      </div>
+      <p style={{ fontSize: 13, color: 'var(--text)', marginBottom: 12, background: 'var(--surface2)', padding: 8, borderRadius: 8 }}>{req.message}</p>
+      {!open ? (
+        <button className="btn btn-gold btn-sm" onClick={() => setOpen(true)}>Responder</button>
+      ) : (
+        <>
+          <textarea className="input" rows={2} placeholder="Respuesta al entrenador..." value={response}
+            onChange={e => setResponse(e.target.value)} style={{ marginBottom: 8 }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>Cancelar</button>
+            <button className="btn btn-gold btn-sm" onClick={() => onResolve(req.id, response)}>Resolver</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
