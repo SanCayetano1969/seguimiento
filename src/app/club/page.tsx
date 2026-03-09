@@ -50,7 +50,7 @@ export default function ClubPage() {
       { data: reqData },
       { count: unreadCount },
     ] = await Promise.all([
-      supabase.from('club_overview').select('*').order('avg_global', { ascending: false }),
+      supabase.from('club_overview').select('*').order('team_name', { ascending: true }),
       supabase.from('events').select('*, teams(name,category)')
         .gte('date', format(today, 'yyyy-MM-dd'))
         .lte('date', format(end, 'yyyy-MM-dd'))
@@ -176,7 +176,7 @@ export default function ClubPage() {
                   >
                     <div style={{ width: 4, height: 40, borderRadius: 2, background: TEAM_COLORS[i % TEAM_COLORS.length], flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{t.team_name}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'white' }}>{t.team_name}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.total_players} jugadores · {t.total_evaluations} evaluaciones</div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
