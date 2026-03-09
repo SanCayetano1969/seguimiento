@@ -293,8 +293,8 @@ function EquipoContent() {
     <div className="page-content">
       <div className="page-header" style={{ justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{team?.name || 'Equipo'}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{team?.modalidad}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{team?.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{team?.modalidad} · {players.length} jugadores</div>
         </div>
         {canEdit && (
           <button className="btn btn-gold btn-sm" onClick={() => {
