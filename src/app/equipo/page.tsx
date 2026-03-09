@@ -322,7 +322,7 @@ function EquipoContent() {
 
       {showAddPlayer && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 100, display: 'flex', alignItems: 'flex-end' }}>
-          <div style={{ background: 'var(--surface)', width: '100%', borderRadius: '20px 20px 0 0', padding: 24 }}>
+          <div style={{ background: 'var(--surface)', width: '100%', borderRadius: '20px 20px 0 0', padding: 24, paddingBottom: 90 }}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: 'var(--text)' }}>Nuevo jugador</div>
             <label className="label">Nombre *</label>
             <input className="input" placeholder="Nombre completo" value={newPlayer.name}
