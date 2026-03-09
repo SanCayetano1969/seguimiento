@@ -37,7 +37,7 @@ export default function AgendaPage() {
       supabase.from('events').select('*, teams(name,category)')
         .gte('date', start).lte('date', end)
         .order('date').order('time'),
-      supabase.from('teams').select('*').eq('active', true).order('name'),
+      supabase.from('teams').select('*').order('name'),
     ])
     setEvents(evData || [])
     setTeams(teamsData || [])
