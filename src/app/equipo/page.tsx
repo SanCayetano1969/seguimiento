@@ -81,6 +81,11 @@ function EquipoContent() {
     setLoading(false)
   }
 
+  async function deletePlayer(p: Player) {
+    await supabase.from('players').delete().eq('id', p.id)
+    setSelected(null)
+  }
+
   async function openPlayer(p: Player) {
     setSelected(p)
     setTab('stats')
@@ -153,11 +158,12 @@ function EquipoContent() {
         <div className="page-header">
           <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>‹</button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{selected.name}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               #{selected.dorsal} · {selected.position}
             </div>
           </div>
+          {canEdit && <button className='btn btn-ghost btn-sm' style={{color:'#FC8181'}} onClick={() => deletePlayer(selected)}>🗑</button>}
         </div>
 
         {/* Tabs */}
