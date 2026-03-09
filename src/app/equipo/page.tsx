@@ -317,14 +317,6 @@ function EquipoContent() {
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{team?.name}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{team?.modalidad} · {players.length} jugadores</div>
         </div>
-        {canEdit && (
-          <button className="btn btn-gold btn-sm" onClick={() => {
-            const name = prompt('Nombre del jugador:')
-            const dorsal = prompt('Dorsal:')
-            const position = prompt('Posición:')
-            const birth_year = prompt('Año de nacimiento:')
-          }}>+ Jugador</button>
-        )}
       </div>
 
       {loading ? (
