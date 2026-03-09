@@ -62,7 +62,12 @@ export default function ClubPage() {
         .eq('to_user_id', session!.id).eq('read', false),
     ])
 
-    setTeams(tData || [])
+    const ORDER = ["Alevin","Alevin","Infantil","Cadete","Juvenil","Amateur"]
+    const sorted = (tData || []).sort((a,b) => {
+      const cats = ["Alevin","Infantil","Cadete","Juvenil","Amateur"]
+      return cats.indexOf(a.category) - cats.indexOf(b.category) || a.team_name.localeCompare(b.team_name)
+    })
+    setTeams(sorted)
     setEvents(evData || [])
     setAnn(annData || [])
     setRequests(reqData || [])
