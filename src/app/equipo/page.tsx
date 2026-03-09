@@ -376,7 +376,7 @@ function EquipoContent() {
                 {p.dorsal || '—'}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{p.name}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.position}</div>
               </div>
               <span style={{ color: 'var(--text-muted)' }}>›</span>
