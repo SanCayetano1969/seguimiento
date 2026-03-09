@@ -292,8 +292,18 @@ function EquipoContent() {
   return (
     <div className="page-content">
       <div className="page-header" style={{ justifyContent: 'space-between' }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>{team?.name || 'Equipo'}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{team?.modalidad}</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{team?.name || 'Equipo'}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{team?.modalidad}</div>
+        </div>
+        {canEdit && (
+          <button className="btn btn-gold btn-sm" onClick={() => {
+            const name = prompt('Nombre del jugador:')
+            const dorsal = prompt('Dorsal:')
+            const position = prompt('Posición:')
+            const birth_year = prompt('Año de nacimiento:')
+          }}>+ Jugador</button>
+        )}
       </div>
 
       {loading ? (
