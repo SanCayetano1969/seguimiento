@@ -84,6 +84,7 @@ function EquipoContent() {
   async function deletePlayer(p: Player) {
     await supabase.from('players').delete().eq('id', p.id)
     setSelected(null)
+    if (team) loadTeamData(team.id)
   }
 
   async function openPlayer(p: Player) {
