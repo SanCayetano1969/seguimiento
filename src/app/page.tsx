@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, setSession } from '@/lib/supabase'
 
-export default function HomePage() {
+export default function LoginPage() {
   const router = useRouter()
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
@@ -15,236 +15,152 @@ export default function HomePage() {
     setLoading(true)
 
     const trimmed = code.trim().toLowerCase()
+    if (!trimmed) { setError('Introduce tu código de acceso'); setLoading(false); return }
 
-    // Admin / coordinador
-    if (trimmed === (process.env.NEXT_PUBLIC_ADMIN_CODE || 'sancayetano2526')) {
-      sessionStorage.setItem('role', 'admin')
-      router.push('/club')
-      return
-    }
-
-    // Entrenador — busca el equipo por access_code
-    const { data, error: err } = await supabase
-      .from('teams')
-      .select('id, name, category')
+    // Buscar usuario por access_code
+    const { data: user, error: err } = await supabase
+      .from('app_users')
+      .select('*')
       .eq('access_code', trimmed)
+      .eq('active', true)
       .single()
 
-    if (err || !data) {
-      setError('Código incorrecto. Comprueba con el coordinador.')
+    if (err || !user) {
+      setError('Código incorrecto. Consulta con el coordinador.')
       setLoading(false)
       return
     }
 
-    sessionStorage.setItem('role', 'coach')
-    sessionStorage.setItem('team_id', data.id)
-    sessionStorage.setItem('team_name', data.name)
-    router.push('/equipo')
+    // Para entrenadores, cargar sus equipos asignados
+    let team_ids: string[] = []
+    if (user.role === 'coach') {
+      const { data: ut } = await supabase
+        .from('user_teams')
+        .select('team_id')
+        .eq('user_id', user.id)
+      team_ids = (ut || []).map((r: any) => r.team_id)
+    }
+
+    setSession(user, team_ids)
+
+    // Redirigir según rol
+    if (['admin', 'coordinator'].includes(user.role)) {
+      router.push('/club')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
-    <div style={styles.page}>
-      {/* Background grid */}
-      <div style={styles.grid} />
+    <div style={s.page}>
+      <div style={s.bg} />
+      <div style={s.card} className="animate-fade-up">
 
-      <div style={styles.card} className="animate-fade-up">
         {/* Logo */}
-        <div style={styles.logo}>
-          <div style={styles.badge}><img src="/escudo.jpeg" alt="Escudo" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /></div>
+        <div style={s.logoRow}>
+          <div style={s.logoBadge}>
+            <img src="/escudo.jpeg" alt="Escudo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          </div>
           <div>
-            <div className="font-display" style={{ fontSize: 32, letterSpacing: 3 }}>
+            <div className="font-display" style={{ fontSize: 28, letterSpacing: 3, color: 'var(--text)' }}>
               CD San Cayetano
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 4, textTransform: 'uppercase', marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: 3, textTransform: 'uppercase' }}>
               Sistema de Cantera
             </div>
           </div>
         </div>
 
-        <div style={styles.divider} />
+        <div style={s.divider} />
 
-        <p style={styles.subtitle}>
-          Introduce tu código de acceso para continuar.
+        <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', marginBottom: 20 }}>
+          Introduce tu código de acceso para continuar
         </p>
 
-        <form onSubmit={handleLogin} style={styles.form}>
-          <div style={styles.inputWrap}>
-            <span style={styles.inputIcon}>🔑</span>
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ position: 'relative' }}>
+            <span style={s.icon}>🔑</span>
             <input
+              className="input"
               type="text"
-              placeholder="Código de equipo o coordinador"
+              placeholder="Código de acceso"
               value={code}
               onChange={e => setCode(e.target.value)}
-              style={styles.input}
+              style={{ paddingLeft: 40, fontSize: 16 }}
               autoFocus
               autoComplete="off"
+              autoCapitalize="none"
             />
           </div>
 
           {error && (
-            <div style={styles.error}>{error}</div>
+            <div style={s.errorBox}>{error}</div>
           )}
 
-          <button type="submit" disabled={!code || loading} style={styles.btn}>
-            {loading ? 'Verificando...' : 'ENTRAR'}
+          <button
+            className="btn btn-gold btn-full"
+            type="submit"
+            disabled={loading}
+            style={{ marginTop: 4, padding: '14px', fontSize: 15, fontWeight: 700 }}
+          >
+            {loading
+              ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} />
+              : '→ Entrar'}
           </button>
         </form>
 
-        <div style={styles.hint}>
-          <div style={styles.hintRow}>
-            <span style={styles.pill}>👔 Entrenadores</span>
-            usa el código de tu equipo
-          </div>
-          <div style={styles.hintRow}>
-            <span style={styles.pill}>🏆 Coordinador</span>
-            accede al dashboard del club
-          </div>
-        </div>
-      </div>
-
-      <div style={styles.footer}>
-        Temporada 2025/26 · CD San Cayetano
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 24 }}>
+          v2.0 · Temporada 2024/25
+        </p>
       </div>
     </div>
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const s: Record<string, React.CSSProperties> = {
   page: {
     minHeight: '100vh',
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: '20px 16px',
     position: 'relative',
     overflow: 'hidden',
-    background: 'radial-gradient(ellipse 90% 60% at 50% 0%, rgba(13,43,94,0.5) 0%, transparent 70%)',
   },
-  grid: {
-    position: 'fixed',
-    inset: 0,
-    backgroundImage: 'linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)',
-    backgroundSize: '60px 60px',
-    maskImage: 'radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%)',
+  bg: {
+    position: 'fixed', inset: 0, zIndex: 0,
+    background: 'radial-gradient(ellipse at 50% 0%, rgba(26,58,107,0.5) 0%, transparent 70%)',
     pointerEvents: 'none',
   },
   card: {
+    position: 'relative', zIndex: 1,
     background: 'var(--surface)',
     border: '1px solid var(--border)',
-    borderTop: '2px solid var(--gold)',
-    borderRadius: 20,
-    padding: '48px 44px',
+    borderRadius: 24,
+    padding: '32px 24px',
     width: '100%',
-    maxWidth: 440,
-    position: 'relative',
-    zIndex: 1,
-    boxShadow: '0 40px 80px rgba(0,0,0,0.4)',
+    maxWidth: 380,
+    boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
   },
-  logo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 32,
+  logoRow: {
+    display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24,
   },
-  badge: {
-    width: 56,
-    height: 56,
-    background: 'var(--navy)',
-    border: '2px solid var(--gold)',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    
-    flexShrink: 0,
+  logoBadge: {
+    width: 52, height: 52, borderRadius: '50%',
+    border: '2px solid var(--border-gold)',
+    overflow: 'hidden', flexShrink: 0,
+    background: 'var(--surface2)',
   },
   divider: {
-    height: 1,
-    background: 'var(--border)',
-    marginBottom: 24,
+    height: 1, background: 'var(--border)', marginBottom: 20,
   },
-  subtitle: {
-    fontSize: 14,
-    color: 'var(--text-muted)',
-    marginBottom: 24,
-    lineHeight: 1.6,
+  icon: {
+    position: 'absolute', left: 12, top: '50%',
+    transform: 'translateY(-50%)', fontSize: 16, zIndex: 1,
   },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  inputWrap: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 14,
-    fontSize: 16,
-    pointerEvents: 'none',
-  },
-  input: {
-    width: '100%',
-    background: 'var(--surface2)',
-    border: '1px solid var(--border)',
-    borderRadius: 10,
-    padding: '13px 16px 13px 42px',
-    fontSize: 14,
-    color: 'var(--text)',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  },
-  error: {
-    background: 'rgba(229,62,62,0.1)',
-    border: '1px solid rgba(229,62,62,0.3)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    fontSize: 13,
-    color: '#fc8181',
-  },
-  btn: {
-    background: 'linear-gradient(135deg, var(--gold) 0%, #3a9fd4 100%)',
-    color: 'var(--navy-dark)',
-    border: 'none',
-    borderRadius: 10,
-    padding: '14px',
-    fontSize: 16,
-    fontFamily: "'Bebas Neue', sans-serif",
-    letterSpacing: 3,
-    transition: 'all 0.2s',
-    marginTop: 4,
-  },
-  hint: {
-    marginTop: 28,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  hintRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    fontSize: 12,
-    color: 'var(--text-muted)',
-  },
-  pill: {
-    background: 'var(--surface2)',
-    border: '1px solid var(--border)',
-    borderRadius: 20,
-    padding: '3px 10px',
-    fontSize: 11,
-    color: 'var(--text)',
-    whiteSpace: 'nowrap',
-  },
-  footer: {
-    marginTop: 32,
-    fontSize: 12,
-    color: 'var(--text-muted)',
-    position: 'relative',
-    zIndex: 1,
-    letterSpacing: 1,
+  errorBox: {
+    background: 'var(--red-dim)', border: '1px solid rgba(229,62,62,0.3)',
+    borderRadius: 8, padding: '10px 12px',
+    color: 'var(--red)', fontSize: 13,
   },
 }
