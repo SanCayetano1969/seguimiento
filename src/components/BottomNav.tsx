@@ -64,11 +64,11 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
       // Paso 1: pedir permiso directamente (gesto del usuario)
       const perm = await Notification.requestPermission()
       setNotifStatus(perm as any)
-      if (perm !== 'granted') { alert('Permiso: ' + perm); return }
+      if (perm !== 'granted') return
 
       // Paso 2: registrar SW y suscribir
       const userId = localStorage.getItem('sc_user_id')
-      if (!userId) { alert('Sin userId en localStorage'); return }
+      if (!userId) return
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
 
       const reg = await navigator.serviceWorker.register('/sw.js')
@@ -84,15 +84,13 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
       })
-      const res = await fetch('/api/push/subscribe', {
+      await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription: sub.toJSON(), userId })
       })
-      const data = await res.text()
-      alert('Suscripción: ' + res.status + ' ' + data)
     } catch(e: any) {
-      alert('Error: ' + e.message)
+      console.error('Push error:', e)
     }
   }
 
