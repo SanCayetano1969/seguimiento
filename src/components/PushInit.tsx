@@ -3,18 +3,20 @@ import { useEffect, useState } from 'react'
 import PushSubscriber from './PushSubscriber'
 
 export default function PushInit() {
-  const [userId, setUserId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string>('')
 
   useEffect(() => {
     const read = () => {
-      const id = localStorage.getItem('sc_user_id')
-      setUserId(id || null)
+      setUserId(localStorage.getItem('sc_user_id') || '')
     }
     read()
+    // Escuchar login en la misma pestaña via custom event
+    window.addEventListener('sc_login', read)
     window.addEventListener('storage', read)
-    // También polling por si el login es en la misma pestaña
-    const interval = setInterval(read, 2000)
-    return () => { window.removeEventListener('storage', read); clearInterval(interval) }
+    return () => {
+      window.removeEventListener('sc_login', read)
+      window.removeEventListener('storage', read)
+    }
   }, [])
 
   if (!userId) return null
