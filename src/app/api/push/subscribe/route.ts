@@ -12,9 +12,9 @@ export async function POST(req: NextRequest) {
     const { endpoint, keys } = subscription
     const { p256dh, auth } = keys
 
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({ user_id: userId, endpoint, p256dh, auth }, { onConflict: 'user_id' })
+    // Borrar suscripción anterior del usuario y crear nueva
+    await supabase.from('push_subscriptions').delete().eq('user_id', userId)
+    const { error } = await supabase.from('push_subscriptions').insert({ user_id: userId, endpoint, p256dh, auth })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
