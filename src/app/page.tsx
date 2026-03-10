@@ -44,6 +44,8 @@ export default function LoginPage() {
 
     setSession(user, team_ids)
     localStorage.setItem('sc_access_code', trimmed)
+      if (user?.id) localStorage.setItem('sc_user_id', user.id)
+      if (user?.id) localStorage.setItem('sc_user_id', user.id)
 
     if (['admin', 'coordinator'].includes(user.role)) {
       router.push('/club')
