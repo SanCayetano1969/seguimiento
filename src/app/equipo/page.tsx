@@ -7,12 +7,113 @@ import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Line
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// Criteria labels for F11
 const CRITERIA = {
   fisica:   ['Velocidad','Resistencia','Fuerza','Coordinación','Agilidad','Reacción'],
   tecnica:  ['Control','Pase','Regate','Disparo','Cabeza','1vs1'],
-  tactica:  ['Posicionamiento','Presión','Transición','Juego colectivo'],
   psico:    ['Actitud','Concentración','Confianza','Trabajo en equipo','Gest. del error','Competitividad','Fair Play'],
+}
+
+const TACTICA_POR_POSICION = {
+  'Portero': [
+    { key: 'tac1', label: 'Participación en salida', desc: 'Ofrece apoyo a los centrales y se convierte en línea de pase para iniciar el juego desde atrás' },
+    { key: 'tac2', label: 'Elección juego corto/largo', desc: 'Decide con criterio si jugar corto o largo según la presión rival' },
+    { key: 'tac3', label: 'Colocación para reiniciar', desc: 'Se posiciona correctamente para reiniciar el ataque tras recuperar el balón' },
+    { key: 'tac4', label: 'Colocación defensiva', desc: 'Se adelanta o retrocede según la línea defensiva para cubrir el espacio a la espalda' },
+    { key: 'tac5', label: 'Comunicación y organización', desc: 'Dirige y organiza a la defensa con voz y gestos' },
+    { key: 'tac6', label: 'Gestión de centros', desc: 'Sale con decisión a interceptar centros laterales y balones a la espalda' },
+  ],
+  'Defensa Central': [
+    { key: 'tac1', label: 'Salida de balón', desc: 'Conduce o pasa con seguridad para iniciar el juego desde la defensa' },
+    { key: 'tac2', label: 'Superioridad en primera línea', desc: 'Genera superioridad numérica o posicional al progresar con balón' },
+    { key: 'tac3', label: 'Cambio de orientación', desc: 'Cambia el juego al lado contrario para progresar y encontrar espacios' },
+    { key: 'tac4', label: 'Control de profundidad', desc: 'Gestiona la línea defensiva controlando los espacios a su espalda' },
+    { key: 'tac5', label: 'Juego aéreo defensivo', desc: 'Gana duelos aéreos defensivos con anticipación y contundencia' },
+    { key: 'tac6', label: 'Coordinación de línea', desc: 'Coordina la línea defensiva activando el fuera de juego en el momento adecuado' },
+  ],
+  'Lateral Derecho': [
+    { key: 'tac1', label: 'Amplitud y carril exterior', desc: 'Ocupa el carril exterior para dar anchura al equipo en ataque' },
+    { key: 'tac2', label: 'Timing de incorporación', desc: 'Se incorpora al ataque en el momento adecuado sin descuidar su posición' },
+    { key: 'tac3', label: 'Apoyo al extremo', desc: 'Apoya al extremo por dentro o por fuera según el contexto del juego' },
+    { key: 'tac4', label: 'Control del extremo rival', desc: 'Se orienta correctamente y mantiene la distancia adecuada frente al extremo rival' },
+    { key: 'tac5', label: 'Defensa de centros', desc: 'Se anticipa y defiende con eficacia los centros laterales del rival' },
+    { key: 'tac6', label: 'Basculación defensiva', desc: 'Bascula con la línea defensiva cerrando los pases interiores' },
+  ],
+  'Lateral Izquierdo': [
+    { key: 'tac1', label: 'Amplitud y carril exterior', desc: 'Ocupa el carril exterior para dar anchura al equipo en ataque' },
+    { key: 'tac2', label: 'Timing de incorporación', desc: 'Se incorpora al ataque en el momento adecuado sin descuidar su posición' },
+    { key: 'tac3', label: 'Apoyo al extremo', desc: 'Apoya al extremo por dentro o por fuera según el contexto del juego' },
+    { key: 'tac4', label: 'Control del extremo rival', desc: 'Se orienta correctamente y mantiene la distancia adecuada frente al extremo rival' },
+    { key: 'tac5', label: 'Defensa de centros', desc: 'Se anticipa y defiende con eficacia los centros laterales del rival' },
+    { key: 'tac6', label: 'Basculación defensiva', desc: 'Bascula con la línea defensiva cerrando los pases interiores' },
+  ],
+  'Mediocentro Defensivo': [
+    { key: 'tac1', label: 'Línea de pase en salida', desc: 'Se ofrece constantemente como apoyo en la salida de balón' },
+    { key: 'tac2', label: 'Cambio de orientación', desc: 'Cambia el ritmo y la orientación del juego con pases precisos' },
+    { key: 'tac3', label: 'Apoyo entre líneas', desc: 'Conecta la línea defensiva con la ofensiva dando continuidad al juego' },
+    { key: 'tac4', label: 'Protección del espacio', desc: 'Protege el espacio delante de los centrales cortando líneas de pase' },
+    { key: 'tac5', label: 'Equilibrio tras pérdida', desc: 'Recupera su posición de equilibrio rápidamente tras perder el balón' },
+    { key: 'tac6', label: 'Intercepción interior', desc: 'Intercepta pases interiores del rival leyendo el juego con anticipación' },
+  ],
+  'Mediocentro': [
+    { key: 'tac1', label: 'Ocupación de espacios intermedios', desc: 'Aparece entre las líneas rivales para recibir y progresar' },
+    { key: 'tac2', label: 'Llegada al área', desc: 'Se incorpora desde segunda línea para llegar con peligro al área rival' },
+    { key: 'tac3', label: 'Apoyo entre líneas', desc: 'Da continuidad al juego apoyando al portador entre las líneas rivales' },
+    { key: 'tac4', label: 'Presión al poseedor', desc: 'Presiona con intensidad al poseedor en mediocampo cortando opciones de pase' },
+    { key: 'tac5', label: 'Ayuda defensiva en banda', desc: 'Ayuda al lateral cuando el rival ataca por su banda' },
+    { key: 'tac6', label: 'Repliegue y equilibrio', desc: 'Se repliega rápido en transición aportando equilibrio defensivo' },
+  ],
+  'Mediocentro Ofensivo': [
+    { key: 'tac1', label: 'Ocupación entre líneas', desc: 'Se sitúa entre el mediocampo y la defensa rival como opción de pase' },
+    { key: 'tac2', label: 'Conexión mediocampo-delanteros', desc: 'Facilita la progresión del equipo con apoyos y últimos pases' },
+    { key: 'tac3', label: 'Llegada al área', desc: 'Aparece en zonas de remate tras la progresión del ataque' },
+    { key: 'tac4', label: 'Presión sobre el pivote rival', desc: 'Activa o lidera la presión sobre el mediocentro defensivo rival' },
+    { key: 'tac5', label: 'Cierre de líneas interiores', desc: 'Orienta su presión para evitar que el rival progrese por dentro' },
+    { key: 'tac6', label: 'Repliegue a bloque medio', desc: 'Se coloca en segunda línea defensiva cuando el equipo se reorganiza' },
+  ],
+  'Extremo Derecho': [
+    { key: 'tac1', label: 'Fijar lateral y dar amplitud', desc: 'Fija al lateral rival en su posición generando amplitud en el ataque' },
+    { key: 'tac2', label: 'Ataque al espacio a la espalda', desc: 'Ataca el espacio detrás del lateral rival en el momento oportuno' },
+    { key: 'tac3', label: 'Duelos 1v1', desc: 'Gana duelos individuales frente al rival con habilidad y decisión' },
+    { key: 'tac4', label: 'Centros y pases atrás', desc: 'Genera peligro con centros o pases atrás desde posición de banda' },
+    { key: 'tac5', label: 'Presión al lateral rival', desc: 'Presiona la salida de balón del lateral rival por su banda' },
+    { key: 'tac6', label: 'Repliegue y cierre interior', desc: 'Se repliega por su banda y cierra la línea de pase hacia dentro' },
+  ],
+  'Extremo Izquierdo': [
+    { key: 'tac1', label: 'Fijar lateral y dar amplitud', desc: 'Fija al lateral rival en su posición generando amplitud en el ataque' },
+    { key: 'tac2', label: 'Ataque al espacio a la espalda', desc: 'Ataca el espacio detrás del lateral rival en el momento oportuno' },
+    { key: 'tac3', label: 'Duelos 1v1', desc: 'Gana duelos individuales frente al rival con habilidad y decisión' },
+    { key: 'tac4', label: 'Centros y pases atrás', desc: 'Genera peligro con centros o pases atrás desde posición de banda' },
+    { key: 'tac5', label: 'Presión al lateral rival', desc: 'Presiona la salida de balón del lateral rival por su banda' },
+    { key: 'tac6', label: 'Repliegue y cierre interior', desc: 'Se repliega por su banda y cierra la línea de pase hacia dentro' },
+  ],
+  'Delantero Centro': [
+    { key: 'tac1', label: 'Movimientos de ruptura', desc: 'Realiza desmarques a la espalda de la defensa para recibir en profundidad' },
+    { key: 'tac2', label: 'Capacidad goleadora', desc: 'Finaliza las ocasiones con eficacia dentro del área' },
+    { key: 'tac3', label: 'Desmarques de apoyo', desc: 'Se ofrece como apoyo para ayudar al equipo a progresar' },
+    { key: 'tac4', label: 'Primera presión', desc: 'Inicia la presión sobre los defensas rivales en la salida de balón' },
+    { key: 'tac5', label: 'Orientación hacia banda', desc: 'Dirige su presión para obligar al rival a jugar hacia la banda' },
+    { key: 'tac6', label: 'Bloqueo de pases al pivote', desc: 'Bloquea las líneas de pase hacia el mediocentro defensivo rival' },
+  ],
+  'Segunda Punta': [
+    { key: 'tac1', label: 'Movimientos de ruptura', desc: 'Realiza desmarques a la espalda de la defensa para recibir en profundidad' },
+    { key: 'tac2', label: 'Capacidad goleadora', desc: 'Finaliza las ocasiones con eficacia dentro del área' },
+    { key: 'tac3', label: 'Desmarques de apoyo', desc: 'Se ofrece como apoyo para ayudar al equipo a progresar' },
+    { key: 'tac4', label: 'Primera presión', desc: 'Inicia la presión sobre los defensas rivales en la salida de balón' },
+    { key: 'tac5', label: 'Orientación hacia banda', desc: 'Dirige su presión para obligar al rival a jugar hacia la banda' },
+    { key: 'tac6', label: 'Bloqueo de pases al pivote', desc: 'Bloquea las líneas de pase hacia el mediocentro defensivo rival' },
+  ],
+}
+
+const TACTICA_GENERICA = [
+  { key: 'tac1', label: 'Posicionamiento', desc: 'Ocupa correctamente los espacios según el momento del juego' },
+  { key: 'tac2', label: 'Presión', desc: 'Presiona al poseedor con intensidad y criterio' },
+  { key: 'tac3', label: 'Transición', desc: 'Reacciona rápido al cambio de fase ataque-defensa' },
+  { key: 'tac4', label: 'Juego colectivo', desc: 'Contribuye al juego colectivo del equipo' },
+]
+
+function getTacticaCriteria(position) {
+  if (!position) return TACTICA_GENERICA
+  return TACTICA_POR_POSICION[position] || TACTICA_GENERICA
 }
 
 function EquipoContent() {
@@ -21,17 +122,17 @@ function EquipoContent() {
   const session = getSession()
   const teamId  = params.get('team')
 
-  const [team, setTeam]         = useState<Team | null>(null)
-  const [players, setPlayers]   = useState<Player[]>([])
-  const [jornadas, setJornadas] = useState<Jornada[]>([])
-  const [selected, setSelected] = useState<Player | null>(null)
-  const [evals, setEvals]       = useState<Evaluation[]>([])
-  const [meetings, setMeetings] = useState<PlayerMeeting[]>([])
-  const [psychs, setPsychs]     = useState<PlayerPsych[]>([])
+  const [team, setTeam]         = useState(null)
+  const [players, setPlayers]   = useState([])
+  const [jornadas, setJornadas] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [evals, setEvals]       = useState([])
+  const [meetings, setMeetings] = useState([])
+  const [psychs, setPsychs]     = useState([])
   const [loading, setLoading]   = useState(true)
-  const [tab, setTab]           = useState<'stats'|'eval'|'reuniones'|'psico'>('stats')
-  const [evalForm, setEvalForm] = useState<Record<string, any>>({})
-  const [selectedJornada, setJornada] = useState<string>('')
+  const [tab, setTab]           = useState('stats')
+  const [evalForm, setEvalForm] = useState({})
+  const [selectedJornada, setJornada] = useState('')
   const [saving, setSaving]     = useState(false)
   const [noteText, setNoteText] = useState('')
   const [addingNote, setAddingNote] = useState(false)
@@ -67,7 +168,7 @@ function EquipoContent() {
     setSavingPlayer(false)
   }
 
-  async function loadTeamData(id: string) {
+  async function loadTeamData(id) {
     setLoading(true)
     const [{ data: t }, { data: pl }, { data: j }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
@@ -81,13 +182,13 @@ function EquipoContent() {
     setLoading(false)
   }
 
-  async function deletePlayer(p: Player) {
+  async function deletePlayer(p) {
     await supabase.from('players').delete().eq('id', p.id)
     setSelected(null)
     if (team) loadTeamData(team.id)
   }
 
-  async function openPlayer(p: Player) {
+  async function openPlayer(p) {
     setSelected(p)
     setTab('stats')
     const { data } = await supabase.from('evaluations').select('*').eq('player_id', p.id).order('jornada_id')
@@ -105,9 +206,8 @@ function EquipoContent() {
   async function saveEval() {
     if (!selected || !selectedJornada || !session) return
     setSaving(true)
-    const jornadaObj = jornadas.find(j => j.id === selectedJornada)
     const payload = {
-      jornada_id: selectedJornada, player_id: selected.id, team_id: team!.id,
+      jornada_id: selectedJornada, player_id: selected.id, team_id: team.id,
       evaluator_id: session.id, ...evalForm
     }
     await supabase.from('evaluations').upsert(payload, { onConflict: 'jornada_id,player_id' })
@@ -117,11 +217,11 @@ function EquipoContent() {
     setTab('stats')
   }
 
-  async function addMeeting(role: 'coach' | 'psychologist') {
+  async function addMeeting(role) {
     if (!noteText.trim() || !selected || !session) return
     setAddingNote(true)
     const table = role === 'psychologist' ? 'player_psych' : 'player_meetings'
-    const payload: any = {
+    const payload = {
       player_id: selected.id, author_id: session.id,
       author_name: session.name, content: noteText.trim(),
     }
@@ -140,8 +240,8 @@ function EquipoContent() {
 
   if (!session) return null
 
-  // ── Player detail ──
   if (selected) {
+    const tacticaCriteria = getTacticaCriteria(selected.position)
     const avgData = [
       { area: 'Física',   value: +(evals.reduce((s,e) => s+(e.media_fisica||0), 0)/Math.max(evals.length,1)).toFixed(1) },
       { area: 'Técnica',  value: +(evals.reduce((s,e) => s+(e.media_tecnica||0), 0)/Math.max(evals.length,1)).toFixed(1) },
@@ -152,7 +252,7 @@ function EquipoContent() {
       j: `J${i+1}`,
       Física: e.media_fisica, Técnica: e.media_tecnica, Táctica: e.media_tactica, Psico: e.media_psico
     }))
-    const currentEval = evalForm
+    const scores = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10]
 
     return (
       <div className="page-content">
@@ -160,14 +260,11 @@ function EquipoContent() {
           <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>‹</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{selected.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              #{selected.dorsal} · {selected.position}
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>#{selected.dorsal} · {selected.position}</div>
           </div>
           {canEdit && <button className='btn btn-ghost btn-sm' style={{color:'#FC8181'}} onClick={() => deletePlayer(selected)}>🗑</button>}
         </div>
 
-        {/* Tabs */}
         <div className="scroll-row" style={{ padding: '10px 16px 0' }}>
           {[
             { key: 'stats', label: '📊 Stats' },
@@ -176,18 +273,16 @@ function EquipoContent() {
             ...(canPsych ? [{ key: 'psico', label: '🧠 Psicólogo' }] : []),
           ].map(t => (
             <button key={t.key} className={`btn btn-sm ${tab === t.key ? 'btn-gold' : 'btn-ghost'}`}
-              onClick={() => setTab(t.key as any)}>{t.label}</button>
+              onClick={() => setTab(t.key)}>{t.label}</button>
           ))}
         </div>
 
-        {/* ── STATS ── */}
         {tab === 'stats' && (
           <div style={{ padding: '16px' }}>
             {evals.length === 0 ? (
               <div className="empty-state"><div className="icon">📊</div><div>Sin evaluaciones todavía</div></div>
             ) : (
               <>
-                {/* Radar */}
                 <div className="card" style={{ marginBottom: 12 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Perfil del jugador</div>
                   <ResponsiveContainer width="100%" height={180}>
@@ -198,7 +293,6 @@ function EquipoContent() {
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
-                {/* Score summary */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
                   {avgData.map(d => (
                     <div key={d.area} className="card-sm" style={{ textAlign: 'center', padding: '10px 4px' }}>
@@ -207,7 +301,6 @@ function EquipoContent() {
                     </div>
                   ))}
                 </div>
-                {/* Evolution */}
                 {evals.length > 1 && (
                   <div className="card">
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Evolución</div>
@@ -228,97 +321,122 @@ function EquipoContent() {
           </div>
         )}
 
-        {/* ── EVALUAR ── */}
         {tab === 'eval' && canEdit && (
           <div style={{ padding: '16px' }}>
             <label className="label">Jornada</label>
-            <select className="input" style={{ marginBottom: 16 }} value={selectedJornada}
-              onChange={e => setJornada(e.target.value)}>
+            <select className="input" style={{ marginBottom: 16 }} value={selectedJornada} onChange={e => setJornada(e.target.value)}>
               {jornadas.map(j => <option key={j.id} value={j.id}>J{j.number} {j.date ? `· ${j.date}` : ''} · {j.type}</option>)}
             </select>
 
-            {(['fisica','tecnica','tactica','psico'] as const).map(cat => (
-              <div key={cat} style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, textTransform: 'capitalize', color: 'var(--gold)' }}>
-                  {cat === 'fisica' ? 'Física' : cat === 'tecnica' ? 'Técnica' : cat === 'tactica' ? 'Táctica' : 'Psicológica'}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {CRITERIA[cat].map((label, i) => {
-                    const key = cat === 'fisica' ? ['velocidad','resistencia','fuerza','coordinacion','agilidad','reaccion'][i]
-                      : cat === 'tecnica' ? `tec${i+1}`
-                      : cat === 'tactica' ? `tac${i+1}`
-                      : ['actitud','concentracion','confianza','trabajo_equipo','gestion_error','competitividad','fairplay'][i]
-                    return (
-                      <div key={key}>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
-                        <select className="score-input" value={evalForm[key] ?? ''}
-                          onChange={e => setEvalForm(f => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
-                          <option value="">—</option>
-                          {[1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10].map(n => (
-                            <option key={n} value={n}>{n}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )
-                  })}
-                </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Física</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {CRITERIA.fisica.map((label, i) => {
+                  const key = ['velocidad','resistencia','fuerza','coordinacion','agilidad','reaccion'][i]
+                  return (
+                    <div key={key}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
+                      <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm(f => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
+                        <option value="">—</option>
+                        {scores.map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  )
+                })}
               </div>
-            ))}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Técnica</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {CRITERIA.tecnica.map((label, i) => {
+                  const key = `tec${i+1}`
+                  return (
+                    <div key={key}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
+                      <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm(f => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
+                        <option value="">—</option>
+                        {scores.map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, color: 'var(--gold)' }}>Táctica</div>
+              {selected.position && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic' }}>Criterios para: {selected.position}</div>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {tacticaCriteria.map(item => (
+                  <div key={item.key} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text)', marginBottom: 2 }}>{item.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>{item.desc}</div>
+                    <select className="score-input" value={evalForm[item.key] ?? ''} onChange={e => setEvalForm(f => ({ ...f, [item.key]: e.target.value ? +e.target.value : null }))}>
+                      <option value="">—</option>
+                      {scores.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Psicológica</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {CRITERIA.psico.map((label, i) => {
+                  const key = ['actitud','concentracion','confianza','trabajo_equipo','gestion_error','competitividad','fairplay'][i]
+                  return (
+                    <div key={key}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
+                      <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm(f => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
+                        <option value="">—</option>
+                        {scores.map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
                 <label className="label">Minutos</label>
-                <input type="number" className="input" placeholder="90" value={evalForm.minutos ?? ''}
-                  onChange={e => setEvalForm(f => ({ ...f, minutos: e.target.value ? +e.target.value : null }))} />
+                <input type="number" className="input" placeholder="90" value={evalForm.minutos ?? ''} onChange={e => setEvalForm(f => ({ ...f, minutos: e.target.value ? +e.target.value : null }))} />
               </div>
             </div>
-
             <label className="label">Notas</label>
-            <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={evalForm.notas ?? ''}
-              onChange={e => setEvalForm(f => ({ ...f, notas: e.target.value }))} placeholder="Observaciones de la evaluación..." />
-
-            <button className="btn btn-gold btn-full" onClick={saveEval} disabled={saving}>
-              {saving ? 'Guardando...' : '💾 Guardar evaluación'}
-            </button>
+            <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={evalForm.notas ?? ''} onChange={e => setEvalForm(f => ({ ...f, notas: e.target.value }))} placeholder="Observaciones de la evaluación..." />
+            <button className="btn btn-gold btn-full" onClick={saveEval} disabled={saving}>{saving ? 'Guardando...' : '💾 Guardar evaluación'}</button>
           </div>
         )}
 
-        {/* ── REUNIONES ── */}
         {tab === 'reuniones' && canMeetings && (
           <div style={{ padding: '16px' }}>
             <div className="card-sm" style={{ marginBottom: 12 }}>
               <label className="label">Nueva entrada</label>
-              <textarea className="input" rows={3} placeholder="Resumen de la reunión, observaciones..." value={noteText}
-                onChange={e => setNoteText(e.target.value)} style={{ marginBottom: 8 }} />
-              <button className="btn btn-gold btn-full btn-sm" onClick={() => addMeeting('coach')} disabled={addingNote || !noteText.trim()}>
-                + Añadir
-              </button>
+              <textarea className="input" rows={3} placeholder="Resumen de la reunión..." value={noteText} onChange={e => setNoteText(e.target.value)} style={{ marginBottom: 8 }} />
+              <button className="btn btn-gold btn-full btn-sm" onClick={() => addMeeting('coach')} disabled={addingNote || !noteText.trim()}>+ Añadir</button>
             </div>
             <NotesList notes={meetings} sessionId={session.id} />
           </div>
         )}
 
-        {/* ── PSICÓLOGO ── */}
         {tab === 'psico' && canPsych && (
           <div style={{ padding: '16px' }}>
             <div className="card-sm" style={{ marginBottom: 12 }}>
               <label className="label">Nueva sesión</label>
-              <textarea className="input" rows={3} placeholder="Observaciones de la sesión..." value={noteText}
-                onChange={e => setNoteText(e.target.value)} style={{ marginBottom: 8 }} />
-              <button className="btn btn-gold btn-full btn-sm" onClick={() => addMeeting('psychologist')} disabled={addingNote || !noteText.trim()}>
-                + Añadir
-              </button>
+              <textarea className="input" rows={3} placeholder="Observaciones de la sesión..." value={noteText} onChange={e => setNoteText(e.target.value)} style={{ marginBottom: 8 }} />
+              <button className="btn btn-gold btn-full btn-sm" onClick={() => addMeeting('psychologist')} disabled={addingNote || !noteText.trim()}>+ Añadir</button>
             </div>
             <NotesList notes={psychs} sessionId={session.id} />
           </div>
         )}
-
         <BottomNav role={session.role} />
       </div>
     )
   }
 
-  // ── Players list ──
   return (
     <div className="page-content">
       <div className="page-header" style={{ justifyContent: 'space-between' }}>
@@ -334,23 +452,19 @@ function EquipoContent() {
           <div style={{ background: 'var(--surface)', width: '100%', borderRadius: '20px 20px 0 0', padding: 24, paddingBottom: 90 }}>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20, color: 'var(--text)' }}>Nuevo jugador</div>
             <label className="label">Nombre *</label>
-            <input className="input" placeholder="Nombre completo" value={newPlayer.name}
-              onChange={e => setNewPlayer(p => ({...p, name: e.target.value}))} style={{ marginBottom: 12 }} />
+            <input className="input" placeholder="Nombre completo" value={newPlayer.name} onChange={e => setNewPlayer(p => ({...p, name: e.target.value}))} style={{ marginBottom: 12 }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <label className="label">Dorsal</label>
-                <input className="input" type="number" placeholder="10" value={newPlayer.dorsal}
-                  onChange={e => setNewPlayer(p => ({...p, dorsal: e.target.value}))} />
+                <input className="input" type="number" placeholder="10" value={newPlayer.dorsal} onChange={e => setNewPlayer(p => ({...p, dorsal: e.target.value}))} />
               </div>
               <div>
                 <label className="label">Año nac.</label>
-                <input className="input" type="number" placeholder="2012" value={newPlayer.birth_year}
-                  onChange={e => setNewPlayer(p => ({...p, birth_year: e.target.value}))} />
+                <input className="input" type="number" placeholder="2012" value={newPlayer.birth_year} onChange={e => setNewPlayer(p => ({...p, birth_year: e.target.value}))} />
               </div>
             </div>
             <label className="label">Posición</label>
-            <select className="input" value={newPlayer.position}
-              onChange={e => setNewPlayer(p => ({...p, position: e.target.value}))} style={{ marginBottom: 20 }}>
+            <select className="input" value={newPlayer.position} onChange={e => setNewPlayer(p => ({...p, position: e.target.value}))} style={{ marginBottom: 20 }}>
               <option value="">Seleccionar...</option>
               <option>Portero</option>
               <option>Defensa Central</option>
@@ -366,9 +480,7 @@ function EquipoContent() {
             </select>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowAddPlayer(false)}>Cancelar</button>
-              <button className="btn btn-gold" style={{ flex: 1 }} onClick={saveNewPlayer} disabled={savingPlayer}>
-                {savingPlayer ? 'Guardando...' : 'Guardar'}
-              </button>
+              <button className="btn btn-gold" style={{ flex: 1 }} onClick={saveNewPlayer} disabled={savingPlayer}>{savingPlayer ? 'Guardando...' : 'Guardar'}</button>
             </div>
           </div>
         </div>
@@ -394,26 +506,21 @@ function EquipoContent() {
           {players.length === 0 && <div className="empty-state"><div className="icon">👤</div><div>Sin jugadores en el equipo</div></div>}
         </div>
       )}
-
       <BottomNav role={session.role} />
     </div>
   )
 }
 
-function NotesList({ notes, sessionId }: { notes: (PlayerMeeting | PlayerPsych)[]; sessionId: string }) {
+function NotesList({ notes, sessionId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {notes.map(n => (
         <div key={n.id} className="card-sm">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div className="avatar" style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface3)', color: 'var(--gold)' }}>
-              {n.author_name.charAt(0)}
-            </div>
+            <div className="avatar" style={{ width: 28, height: 28, fontSize: 12, background: 'var(--surface3)', color: 'var(--gold)' }}>{n.author_name.charAt(0)}</div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 13 }}>{n.author_name}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
-                {format(parseISO(n.created_at), "d MMM yyyy · HH:mm", { locale: es })}
-              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{format(parseISO(n.created_at), "d MMM yyyy · HH:mm", { locale: es })}</div>
             </div>
           </div>
           <p style={{ fontSize: 13, lineHeight: 1.6 }}>{n.content}</p>
