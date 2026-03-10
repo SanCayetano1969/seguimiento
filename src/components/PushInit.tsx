@@ -6,24 +6,15 @@ export default function PushInit() {
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
-    const stored = localStorage.getItem('sc_user')
-    if (stored) {
-      try {
-        const user = JSON.parse(stored)
-        if (user?.id) setUserId(user.id)
-      } catch {}
+    const read = () => {
+      const id = localStorage.getItem('sc_user_id')
+      setUserId(id || null)
     }
-    // Escuchar cambios de sesión (login/logout)
-    const handler = () => {
-      const s = localStorage.getItem('sc_user')
-      if (s) {
-        try { setUserId(JSON.parse(s)?.id || null) } catch { setUserId(null) }
-      } else {
-        setUserId(null)
-      }
-    }
-    window.addEventListener('storage', handler)
-    return () => window.removeEventListener('storage', handler)
+    read()
+    window.addEventListener('storage', read)
+    // También polling por si el login es en la misma pestaña
+    const interval = setInterval(read, 2000)
+    return () => { window.removeEventListener('storage', read); clearInterval(interval) }
   }, [])
 
   if (!userId) return null
