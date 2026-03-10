@@ -123,7 +123,7 @@ export default function ClubPage() {
               {requests.length} solicitud{requests.length > 1 ? 'es' : ''}
             </span>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={() => { clearSession(); router.push('/') }}>Salir</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { clearSession(); localStorage.removeItem('sc_access_code'); router.push('/') }}>Salir</button>
         </div>
       </div>
 

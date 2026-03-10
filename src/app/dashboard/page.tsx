@@ -77,6 +77,7 @@ export default function DashboardPage() {
 
   function logout() {
     clearSession()
+    localStorage.removeItem('sc_access_code')
     router.push('/')
   }
 
