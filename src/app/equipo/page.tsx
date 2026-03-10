@@ -137,7 +137,9 @@ function EquipoContent() {
   const [noteText, setNoteText] = useState('')
   const [addingNote, setAddingNote] = useState(false)
   const [showAddPlayer, setShowAddPlayer] = useState(false)
-  const [newPlayer, setNewPlayer] = useState({ name: '', dorsal: '', position: '', birth_year: '' })
+  const [editingField, setEditingField] = useState<string|null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [newPlayer, setNewPlayer] = useState({ name: '', dorsal: '', position: '', birth_year: '', foot: '' })
   const [savingPlayer, setSavingPlayer] = useState(false)
   const canEdit = canEditEval(session?.role || 'coach')
   const canMeetings = canSeePrivateNotes(session?.role || 'coach')
@@ -158,11 +160,12 @@ function EquipoContent() {
       dorsal: newPlayer.dorsal ? parseInt(newPlayer.dorsal) : null,
       position: newPlayer.position || null,
       birth_year: newPlayer.birth_year ? parseInt(newPlayer.birth_year) : null,
+      foot: newPlayer.foot || null,
       team_id: team.id
     })
     if (!res.error) {
       setShowAddPlayer(false)
-      setNewPlayer({ name: '', dorsal: '', position: '', birth_year: '' })
+      setNewPlayer({ name: '', dorsal: '', position: '', birth_year: '', foot: '' })
       loadTeamData(team.id)
     }
     setSavingPlayer(false)
@@ -186,6 +189,14 @@ function EquipoContent() {
     await supabase.from('players').delete().eq('id', p.id)
     setSelected(null)
     if (team) loadTeamData(team.id)
+  }
+
+  async function savePlayerField(field: string, value: string) {
+    if (!selected) return
+    await supabase.from('players').update({ [field]: value || null }).eq('id', selected.id)
+    setSelected((p: any) => ({ ...p, [field]: value || null }))
+    setPlayers(ps => ps.map(p => p.id === selected.id ? { ...p, [field]: value || null } : p))
+    setEditingField(null)
   }
 
   async function openPlayer(p: Player) {
@@ -260,7 +271,11 @@ function EquipoContent() {
           <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>‹</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{selected.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>#{selected.dorsal} · {selected.position}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              #{selected.dorsal} · {selected.position || '—'}
+              {selected.foot && <span> · 🦶 {selected.foot}</span>}
+              {selected.birth_year && <span> · {selected.birth_year}</span>}
+            </div>
           </div>
           {canEdit && <button className='btn btn-ghost btn-sm' style={{color:'#FC8181'}} onClick={() => deletePlayer(selected)}>🗑</button>}
         </div>
@@ -268,6 +283,7 @@ function EquipoContent() {
         <div className="scroll-row" style={{ padding: '10px 16px 0' }}>
           {[
             { key: 'stats', label: '📊 Stats' },
+            { key: 'ficha', label: '👤 Ficha' },
             ...(canEdit ? [{ key: 'eval', label: '✏️ Evaluar' }] : []),
             ...(canMeetings ? [{ key: 'reuniones', label: '💬 Reuniones' }] : []),
             ...(canPsych ? [{ key: 'psico', label: '🧠 Psicólogo' }] : []),
@@ -317,6 +333,94 @@ function EquipoContent() {
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+
+        {tab === 'ficha' && (
+          <div style={{ padding: '16px' }}>
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--gold)' }}>Datos del jugador</div>
+
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>NOMBRE</div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{selected.name}</div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>DORSAL</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold)' }}>#{selected.dorsal || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>AÑO NAC.</div>
+                  <div style={{ fontSize: 22, fontWeight: 800 }}>{selected.birth_year || '—'}</div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>POSICIÓN</div>
+                {editingField === 'position' ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select className="input" style={{ flex: 1 }} value={editValue} onChange={e => setEditValue(e.target.value)}>
+                      <option value="">Sin posición</option>
+                      <option>Portero</option>
+                      <option>Defensa Central</option>
+                      <option>Lateral Derecho</option>
+                      <option>Lateral Izquierdo</option>
+                      <option>Mediocentro Defensivo</option>
+                      <option>Mediocentro</option>
+                      <option>Mediocentro Ofensivo</option>
+                      <option>Extremo Derecho</option>
+                      <option>Extremo Izquierdo</option>
+                      <option>Delantero Centro</option>
+                      <option>Segunda Punta</option>
+                    </select>
+                    <button className="btn btn-gold btn-sm" onClick={() => savePlayerField('position', editValue)}>✓</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditingField(null)}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{selected.position || '—'}</span>
+                    {canEdit && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => { setEditingField('position'); setEditValue(selected.position || '') }}>Editar</button>}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>PIE DOMINANTE</div>
+                {editingField === 'foot' ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select className="input" style={{ flex: 1 }} value={editValue} onChange={e => setEditValue(e.target.value)}>
+                      <option value="">—</option>
+                      <option>Derecho</option>
+                      <option>Izquierdo</option>
+                      <option>Ambidiestro</option>
+                    </select>
+                    <button className="btn btn-gold btn-sm" onClick={() => savePlayerField('foot', editValue)}>✓</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setEditingField(null)}>✕</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>🦶 {selected.foot || '—'}</span>
+                    {canEdit && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => { setEditingField('foot'); setEditValue(selected.foot || '') }}>Editar</button>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {canMeetings && (
+              <div className="card" style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--gold)' }}>💬 Historial reuniones</div>
+                <NotesList notes={meetings} sessionId={session.id} />
+              </div>
+            )}
+
+            {canPsych && (
+              <div className="card">
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--gold)' }}>🧠 Historial psicólogo</div>
+                <NotesList notes={psychs} sessionId={session.id} />
+              </div>
             )}
           </div>
         )}
@@ -463,21 +567,34 @@ function EquipoContent() {
                 <input className="input" type="number" placeholder="2012" value={newPlayer.birth_year} onChange={e => setNewPlayer(p => ({...p, birth_year: e.target.value}))} />
               </div>
             </div>
-            <label className="label">Posición</label>
-            <select className="input" value={newPlayer.position} onChange={e => setNewPlayer(p => ({...p, position: e.target.value}))} style={{ marginBottom: 20 }}>
-              <option value="">Seleccionar...</option>
-              <option>Portero</option>
-              <option>Defensa Central</option>
-              <option>Lateral Derecho</option>
-              <option>Lateral Izquierdo</option>
-              <option>Mediocentro Defensivo</option>
-              <option>Mediocentro</option>
-              <option>Mediocentro Ofensivo</option>
-              <option>Extremo Derecho</option>
-              <option>Extremo Izquierdo</option>
-              <option>Delantero Centro</option>
-              <option>Segunda Punta</option>
-            </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <div>
+                <label className="label">Posición</label>
+                <select className="input" value={newPlayer.position} onChange={e => setNewPlayer(p => ({...p, position: e.target.value}))}>
+                  <option value="">Seleccionar...</option>
+                  <option>Portero</option>
+                  <option>Defensa Central</option>
+                  <option>Lateral Derecho</option>
+                  <option>Lateral Izquierdo</option>
+                  <option>Mediocentro Defensivo</option>
+                  <option>Mediocentro</option>
+                  <option>Mediocentro Ofensivo</option>
+                  <option>Extremo Derecho</option>
+                  <option>Extremo Izquierdo</option>
+                  <option>Delantero Centro</option>
+                  <option>Segunda Punta</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Pie dominante</label>
+                <select className="input" value={newPlayer.foot || ''} onChange={e => setNewPlayer(p => ({...p, foot: e.target.value}))}>
+                  <option value="">—</option>
+                  <option>Derecho</option>
+                  <option>Izquierdo</option>
+                  <option>Ambidiestro</option>
+                </select>
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowAddPlayer(false)}>Cancelar</button>
               <button className="btn btn-gold" style={{ flex: 1 }} onClick={saveNewPlayer} disabled={savingPlayer}>{savingPlayer ? 'Guardando...' : 'Guardar'}</button>
