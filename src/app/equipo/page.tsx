@@ -251,11 +251,13 @@ function EquipoContent() {
                     return (
                       <div key={key}>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
-                        <input type="number" min={1} max={10} step={0.5} className="score-input"
-                          placeholder="—"
-                          value={evalForm[key] ?? ''}
-                          onChange={e => setEvalForm(f => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}
-                        />
+                        <select className="score-input" value={evalForm[key] ?? ''}
+                          onChange={e => setEvalForm(f => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
+                          <option value="">—</option>
+                          {[1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10].map(n => (
+                            <option key={n} value={n}>{n}</option>
+                          ))}
+                        </select>
                       </div>
                     )
                   })}
