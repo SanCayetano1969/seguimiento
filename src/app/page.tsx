@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, setSession } from '@/lib/supabase'
 
@@ -7,17 +7,18 @@ export default function LoginPage() {
   const router = useRouter()
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+  useEffect(() => {
+    const saved = localStorage.getItem('sc_access_code')
+    if (saved) {
+      doLogin(saved)
+    } else {
+      setLoading(false)
+    }
+  }, [])
 
-    const trimmed = code.trim().toLowerCase()
-    if (!trimmed) { setError('Introduce tu código de acceso'); setLoading(false); return }
-
-    // Buscar usuario por access_code
+  async function doLogin(trimmed: string) {
     const { data: user, error: err } = await supabase
       .from('app_users')
       .select('*')
@@ -26,12 +27,12 @@ export default function LoginPage() {
       .single()
 
     if (err || !user) {
+      localStorage.removeItem('sc_access_code')
       setError('Código incorrecto. Consulta con el coordinador.')
       setLoading(false)
       return
     }
 
-    // Para entrenadores, cargar sus equipos asignados
     let team_ids: string[] = []
     if (user.role === 'coach') {
       const { data: ut } = await supabase
@@ -42,13 +43,30 @@ export default function LoginPage() {
     }
 
     setSession(user, team_ids)
+    localStorage.setItem('sc_access_code', trimmed)
 
-    // Redirigir según rol
     if (['admin', 'coordinator'].includes(user.role)) {
       router.push('/club')
     } else {
       router.push('/dashboard')
     }
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    const trimmed = code.trim().toLowerCase()
+    if (!trimmed) { setError('Introduce tu código de acceso'); setLoading(false); return }
+    await doLogin(trimmed)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span className="loader animate-spin" style={{ width: 32, height: 32 }} />
+      </div>
+    )
   }
 
   return (
