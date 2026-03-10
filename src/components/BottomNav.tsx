@@ -1,6 +1,16 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { Role } from '@/lib/supabase'
+
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = atob(base64)
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
+}
 
 type Props = {
   role: Role
@@ -42,6 +52,33 @@ const IconUsers = () => (
 export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 0 }: Props) {
   const router = useRouter()
   const path = usePathname()
+  const [notifStatus, setNotifStatus] = useState<'default'|'granted'|'denied'|'no-support'>('default')
+
+  useEffect(() => {
+    if (!('Notification' in window)) { setNotifStatus('no-support'); return }
+    setNotifStatus(Notification.permission as any)
+  }, [])
+
+  async function activarNotificaciones() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    const userId = localStorage.getItem('sc_user_id')
+    if (!userId) return
+    const reg = await navigator.serviceWorker.register('/sw.js')
+    await navigator.serviceWorker.ready
+    const perm = await Notification.requestPermission()
+    setNotifStatus(perm as any)
+    if (perm !== 'granted') return
+    const existing = await reg.pushManager.getSubscription()
+    const sub = existing || await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
+    })
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub.toJSON(), userId })
+    })
+  }
 
   // Dashboard home — depends on role
   const homeRoute = (role === 'admin' || role === 'coordinator') ? '/club' : '/dashboard'
@@ -69,6 +106,15 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
           )}
         </button>
       ))}
+      {notifStatus === 'default' && (
+        <button className="nav-item" onClick={activarNotificaciones} style={{ color: '#f6ad55' }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+            <line x1="12" y1="2" x2="12" y2="1"/>
+          </svg>
+          <span>Avisos</span>
+        </button>
+      )}
     </nav>
   )
 }
