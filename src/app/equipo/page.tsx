@@ -111,7 +111,7 @@ const TACTICA_GENERICA = [
   { key: 'tac4', label: 'Juego colectivo', desc: 'Contribuye al juego colectivo del equipo' },
 ]
 
-function getTacticaCriteria(position) {
+function getTacticaCriteria(position: string | null) {
   if (!position) return TACTICA_GENERICA
   return TACTICA_POR_POSICION[position] || TACTICA_GENERICA
 }
@@ -168,7 +168,7 @@ function EquipoContent() {
     setSavingPlayer(false)
   }
 
-  async function loadTeamData(id) {
+  async function loadTeamData(id: string) {
     setLoading(true)
     const [{ data: t }, { data: pl }, { data: j }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
@@ -182,13 +182,13 @@ function EquipoContent() {
     setLoading(false)
   }
 
-  async function deletePlayer(p) {
+  async function deletePlayer(p: Player) {
     await supabase.from('players').delete().eq('id', p.id)
     setSelected(null)
     if (team) loadTeamData(team.id)
   }
 
-  async function openPlayer(p) {
+  async function openPlayer(p: Player) {
     setSelected(p)
     setTab('stats')
     const { data } = await supabase.from('evaluations').select('*').eq('player_id', p.id).order('jornada_id')
@@ -217,7 +217,7 @@ function EquipoContent() {
     setTab('stats')
   }
 
-  async function addMeeting(role) {
+  async function addMeeting(role: "coach" | "psychologist") {
     if (!noteText.trim() || !selected || !session) return
     setAddingNote(true)
     const table = role === 'psychologist' ? 'player_psych' : 'player_meetings'
