@@ -60,24 +60,38 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
   }, [])
 
   async function activarNotificaciones() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-    const userId = localStorage.getItem('sc_user_id')
-    if (!userId) return
-    const reg = await navigator.serviceWorker.register('/sw.js')
-    await navigator.serviceWorker.ready
-    const perm = await Notification.requestPermission()
-    setNotifStatus(perm as any)
-    if (perm !== 'granted') return
-    const existing = await reg.pushManager.getSubscription()
-    const sub = existing || await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
-    })
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub.toJSON(), userId })
-    })
+    try {
+      // Paso 1: pedir permiso directamente (gesto del usuario)
+      const perm = await Notification.requestPermission()
+      setNotifStatus(perm as any)
+      if (perm !== 'granted') return
+
+      // Paso 2: registrar SW y suscribir
+      const userId = localStorage.getItem('sc_user_id')
+      if (!userId) return
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      await new Promise<void>(resolve => {
+        if (reg.active) { resolve(); return }
+        const sw = reg.installing || reg.waiting
+        if (sw) sw.addEventListener('statechange', () => { if (sw.state === 'activated') resolve() })
+        else navigator.serviceWorker.ready.then(() => resolve())
+      })
+
+      const existing = await reg.pushManager.getSubscription()
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
+      })
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON(), userId })
+      })
+    } catch(e) {
+      console.error('Push error:', e)
+    }
   }
 
   // Dashboard home — depends on role
@@ -112,7 +126,7 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
             <line x1="12" y1="2" x2="12" y2="1"/>
           </svg>
-          <span>🔔 {notifStatus}</span>
+          <span>Avisos</span>
         </button>
       )}
     </nav>
