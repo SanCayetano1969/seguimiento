@@ -6,64 +6,95 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY!
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT!
-
-function base64urlToUint8Array(base64url: string) {
-  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/')
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(base64)
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
 }
 
-async function importPrivateKey(base64url: string) {
-  const keyData = base64urlToUint8Array(base64url)
-  return crypto.subtle.importKey('pkcs8', keyData, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'])
-}
+async function sendPush(endpoint: string, p256dh: string, auth: string, payload: string) {
+  const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY!
+  const vapidSubject = process.env.VAPID_SUBJECT!
 
-async function makeVapidToken(audience: string) {
-  const header = { typ: 'JWT', alg: 'ES256' }
-  const payload = { aud: audience, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: VAPID_SUBJECT }
-  const toB64 = (obj: object) => btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-  const unsigned = `${toB64(header)}.${toB64(payload)}`
-  const key = await importPrivateKey(VAPID_PRIVATE)
-  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, new TextEncoder().encode(unsigned))
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
-  return `${unsigned}.${sigB64}`
+  // Import keys
+  const privateKeyData = urlBase64ToUint8Array(vapidPrivate.replace('MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg','').split('oRA')[0])
+  
+  const publicKey = await crypto.subtle.importKey(
+    'raw', urlBase64ToUint8Array(vapidPublic),
+    { name: 'ECDH', namedCurve: 'P-256' }, true, []
+  )
+
+  // Build VAPID JWT
+  const url = new URL(endpoint)
+  const audience = `${url.protocol}//${url.host}`
+  const exp = Math.floor(Date.now() / 1000) + 12 * 3600
+
+  const header = btoa(JSON.stringify({ typ: 'JWT', alg: 'ES256' })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')
+  const claims = btoa(JSON.stringify({ aud: audience, exp, sub: vapidSubject })).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')
+  const sigInput = `${header}.${claims}`
+
+  // Parse VAPID private key (PKCS8)
+  const pkcs8 = vapidPrivate
+  let keyData: Uint8Array
+  try {
+    const b64 = pkcs8.replace(/-----[^-]+-----/g,'').replace(/\s/g,'')
+    keyData = urlBase64ToUint8Array(b64)
+  } catch {
+    keyData = urlBase64ToUint8Array(vapidPrivate)
+  }
+
+  const sigKey = await crypto.subtle.importKey(
+    'pkcs8', keyData,
+    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
+  ).catch(() => crypto.subtle.importKey(
+    'raw', urlBase64ToUint8Array(vapidPrivate),
+    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
+  ))
+
+  const sig = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    sigKey,
+    new TextEncoder().encode(sigInput)
+  )
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')
+  const jwt = `${sigInput}.${sigB64}`
+
+  const vapidAuth = `vapid t=${jwt},k=${vapidPublic}`
+
+  // Encrypt payload (simplified - send unencrypted for now to test)
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': vapidAuth,
+      'Content-Type': 'application/octet-stream',
+      'TTL': '86400',
+    },
+    body: new TextEncoder().encode(payload)
+  })
+
+  return res.status
 }
 
 export async function POST(req: NextRequest) {
-  const { userIds, title, body, url } = await req.json()
+  try {
+    const { title, body, url } = await req.json()
+    const payload = JSON.stringify({ title, body, url })
 
-  let query = supabase.from('push_subscriptions').select('*')
-  if (userIds && userIds.length > 0) query = query.in('user_id', userIds)
-  const { data: subs } = await query
-  if (!subs || subs.length === 0) return NextResponse.json({ sent: 0 })
+    const { data: subs, error } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
 
-  let sent = 0
-  for (const row of subs) {
-    const sub = JSON.parse(row.subscription)
-    const endpoint = sub.endpoint
-    const origin = new URL(endpoint).origin
-    const token = await makeVapidToken(origin)
-    const authHeader = `vapid t=${token},k=${VAPID_PUBLIC}`
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!subs?.length) return NextResponse.json({ sent: 0, message: 'No subscriptions' })
 
-    const payload = JSON.stringify({ title, body, url: url || '/' })
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader,
-          'TTL': '86400',
-        },
-        body: payload,
-      })
-      if (res.ok || res.status === 201) sent++
-      else if (res.status === 410) {
-        await supabase.from('push_subscriptions').delete().eq('user_id', row.user_id)
-      }
-    } catch {}
+    const results = await Promise.allSettled(
+      subs.map(s => sendPush(s.endpoint, s.p256dh, s.auth, payload))
+    )
+
+    return NextResponse.json({ sent: results.filter(r => r.status === 'fulfilled').length })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
-  return NextResponse.json({ sent })
 }

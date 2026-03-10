@@ -7,13 +7,18 @@ const supabase = createClient(
 )
 
 export async function POST(req: NextRequest) {
-  const { subscription, userId } = await req.json()
-  if (!subscription || !userId) {
-    return NextResponse.json({ error: 'Missing data' }, { status: 400 })
+  try {
+    const { subscription, userId } = await req.json()
+    const { endpoint, keys } = subscription
+    const { p256dh, auth } = keys
+
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .upsert({ user_id: userId, endpoint, p256dh, auth }, { onConflict: 'user_id' })
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .upsert({ user_id: userId, subscription: JSON.stringify(subscription) }, { onConflict: 'user_id' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
 }
