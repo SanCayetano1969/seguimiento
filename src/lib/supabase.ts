@@ -196,7 +196,7 @@ export function canEditAgenda(role: Role) {
 }
 
 export function canEditEval(role: Role) {
-  return ['admin', 'coordinator', 'coach'].includes(role)
+  return ['admin', 'coordinator', 'coach', 'psychologist'].includes(role)
 }
 
 export function canEditLibrary(role: Role) {
@@ -208,7 +208,7 @@ export function canSeePrivateNotes(role: Role) {
 }
 
 export function canSeePsychNotes(role: Role) {
-  return ['admin', 'coordinator', 'psychologist'].includes(role)
+  return ['admin', 'coordinator', 'psychologist', 'coach'].includes(role)
 }
 
 export function hasFullAccess(role: Role) {
