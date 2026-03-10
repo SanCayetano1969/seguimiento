@@ -111,9 +111,9 @@ const TACTICA_GENERICA = [
   { key: 'tac4', label: 'Juego colectivo', desc: 'Contribuye al juego colectivo del equipo' },
 ]
 
-function getTacticaCriteria(position: string | null) {
+function getTacticaCriteria(position: string | null | undefined) {
   if (!position) return TACTICA_GENERICA
-  return TACTICA_POR_POSICION[position] || TACTICA_GENERICA
+  return (TACTICA_POR_POSICION as Record<string, typeof TACTICA_GENERICA>)[position ?? ""] || TACTICA_GENERICA
 }
 
 function EquipoContent() {
