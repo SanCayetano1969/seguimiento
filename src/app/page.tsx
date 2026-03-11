@@ -3,14 +3,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, setSession } from '@/lib/supabase'
 
-
-function urlB64ToUint8Array(b64: string) {
-  const raw = atob(b64)
-  const arr = new Uint8Array(raw.length)
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
-  return arr
-}
-
 export default function LoginPage() {
   const router = useRouter()
   const [code, setCode] = useState('')
@@ -43,24 +35,6 @@ export default function LoginPage() {
     setSession(user, team_ids)
     localStorage.setItem('sc_access_code', trimmed)
     if (user?.id) localStorage.setItem('sc_user_id', user.id)
-
-    try { if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try {
-        const reg = await navigator.serviceWorker.register('/sw.js')
-        await navigator.serviceWorker.ready
-        const existing = await reg.pushManager.getSubscription()
-        const vapidKey = 'BHlb3xmtWsnOCgVsglf42o4BoSuscOtux0O-TxtwSzVe2Sk5Qo0a2TJC9belJlUrE52cAt9JmVvgMyGDeDLDBNw'
-        const pad = '='.repeat((4 - vapidKey.length % 4) % 4)
-        const b64 = (vapidKey + pad).replace(/-/g, '+').replace(/_/g, '/')
-        const appKey = urlB64ToUint8Array(b64)
-        const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey })
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscription: sub.toJSON(), userId: user.id })
-        })
-      } catch(e) { console.error('Push auto:', e) }
-    } } catch(pushErr) { console.error('Push init error:', pushErr) }
 
     if (['admin', 'coordinator'].includes(user.role)) { router.push('/club') }
     else { router.push('/dashboard') }
@@ -109,7 +83,7 @@ export default function LoginPage() {
           {error && <div style={s.errorBox}>{error}</div>}
           <button className="btn btn-gold btn-full" type="submit" disabled={loading}
             style={{ marginTop: 4, padding: '14px', fontSize: 15, fontWeight: 700 }}>
-            {loading ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} /> : '→ Entrar'}
+            {loading ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} /> : 'Entrar'}
           </button>
         </form>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 24 }}>
