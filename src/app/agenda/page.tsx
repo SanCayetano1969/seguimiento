@@ -269,7 +269,7 @@ export default function AgendaPage() {
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Observaciones..." />
 
             {/* REPETICION - solo si no es edicion */}
-            {!form.id && (
+            {!form.id ? (
               <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px', marginBottom: 16, border: '1px solid var(--border)' }}>
                 <label className="label" style={{ marginBottom: 8 }}>🔁 Repeticion</label>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -310,7 +310,7 @@ export default function AgendaPage() {
                   </>
                 )}
               </div>
-            )}
+            ) : null}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost btn-full" onClick={() => setShowForm(false)}>Cancelar</button>
