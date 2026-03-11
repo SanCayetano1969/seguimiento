@@ -7,9 +7,8 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { es } from 'date-fns/locale'
 
 const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌' }
-function teamColor(name?: string): string {
-  if (!name) return 'var(--gold)'
-  const n = (name).toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
+function teamColor(t?: string): string {
+  const n = (t||'').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
   if (n.includes('infantil a')) return '#3b82f6'
   if (n.includes('infantil b')) return '#22c55e'
   if (n.includes('infantil c')) return '#a855f7'
@@ -18,7 +17,7 @@ function teamColor(name?: string): string {
   if (n.includes('juvenil'))    return '#eab308'
   if (n.includes('alevin'))     return '#06b6d4'
   if (n.includes('amateur'))    return '#ef4444'
-  return 'var(--gold)'
+  return '#888'
 }
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
 const WEEKDAYS = ['L','M','X','J','V','S','D']
@@ -174,7 +173,7 @@ export default function AgendaPage() {
               }}>
                 {format(day, 'd')}
                 {hasEvents && !isSelected && (
-                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: events.filter((e:any)=>isSameDay(parseISO(e.date),day))[0]?.team_name ? teamColor(events.filter((e:any)=>isSameDay(parseISO(e.date),day))[0].team_name) : 'var(--gold)' }} />
+                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: teamColor(events.filter((e:any)=>isSameDay(parseISO(e.date),day))[0]?.team_name) }} />
                 )}
               </button>
             )
@@ -196,17 +195,8 @@ export default function AgendaPage() {
             <div style={{ fontSize: 13 }}>Sin eventos este dia</div>
           </div>
         ) : (
-          <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-            {(() => {
-              let _lastDate = ''
-              return dayEvents.map((ev: any, _idx: number) => {
-                const _d = ev.date ? ev.date.substring(0,10) : ''
-                const _showH = _d !== _lastDate; _lastDate = _d
-                return (<div key={ev.id + '_wrap'}>
-                  {_showH && <div style={{ padding:'8px 2px 4px', fontSize:11, fontWeight:700, color:'var(--text-muted)', letterSpacing:'0.08em', textTransform:'uppercase', borderTop: _idx > 0 ? '1px solid var(--border)' : 'none', marginTop: _idx > 0 ? 10 : 0 }}>
-                    {ev.date ? new Date(ev.date+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}) : ''}
-                  </div>}
-                  <div className="card" style={{ display:'flex', gap:10, alignItems:'flex-start', borderLeft:'4px solid '+teamColor(ev.team_name), paddingLeft:12, marginBottom:6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {dayEvents.map(ev => (
               <div key={ev.id} className="card" style={{ display:'flex', gap:10, alignItems:'flex-start', borderLeft:'4px solid '+teamColor(ev.team_name), paddingLeft:12 }}>
                 <span style={{ fontSize: 24 }}>{EVENT_ICONS[ev.type]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -237,10 +227,7 @@ export default function AgendaPage() {
                   </div>
                 )}
               </div>
-                  </div>
-                </div>)
-              })
-            })()}
+            ))}
           </div>
         )}
       </div>
