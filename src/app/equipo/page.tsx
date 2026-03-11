@@ -488,6 +488,34 @@ function EquipoContent() {
         {/* FICHA */}
         {tab === 'ficha' && (
           <div style={{ padding: '16px' }}>
+            {/* Foto en ficha */}
+            {canEdit && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <div style={{ position: 'relative' }}>
+                  <div
+                    style={{ width: 90, height: 90, borderRadius: '50%', overflow: 'hidden', background: 'var(--surface3)', border: '3px solid var(--border-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {selected.photo_url ? (
+                      <img src={selected.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 28 }}>📷</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Subir foto</div>
+                      </div>
+                    )}
+                    {uploadingPhoto && (
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                        <div className="loader animate-spin" style={{ width: 20, height: 20 }} />
+                      </div>
+                    )}
+                  </div>
+                  {selected.photo_url && (
+                    <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>Toca para cambiar</div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="card" style={{ marginBottom: 12 }}>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: 'var(--gold)' }}>Datos del jugador</div>
               <div style={{ marginBottom: 12 }}>
