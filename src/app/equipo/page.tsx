@@ -1,50 +1,5 @@
-'use clie
-            <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 12 }}>Evolución y perfil</div>
-          <div style={{ padding: '16px' }}>
-            {evals.length === 0 ? (
-              <div className="empty-state"><div className="icon">📊</div><div>Sin evaluaciones todavia</div></div>
-            ) : (
-              <>
-                <div className="card" style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Perfil del jugador</div>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <RadarChart data={avgData}>
-                      <PolarGrid stroke="var(--border)" />
-                      <PolarAngleAxis dataKey="area" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                      <Radar dataKey="value" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.2} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
-                  {avgData.map(d => (
-                    <div key={d.area} className="card-sm" style={{ textAlign: 'center', padding: '10px 4px' }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: scoreColor(d.value) }}>{d.value || '—'}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{d.area}</div>
-                    </div>
-                  ))}
-                </div>
-                {evals.length > 1 && (
-                  <div className="card">
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Evolucion</div>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <LineChart data={evoData}>
-                        <XAxis dataKey="j" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                        <Tooltip contentStyle={{ background: 'var(--surface2)', border: 'none', borderRadius: 8, fontSize: 11 }} />
-                        <Line type="monotone" dataKey="Fisica" stroke="#5bb8e8" dot={false} strokeWidth={2} />
-                        <Line type="monotone" dataKey="Tecnica" stroke="#68D391" dot={false} strokeWidth={2} />
-                        <Line type="monotone" dataKey="Tactica" stroke="#F6AD55" dot={false} strokeWidth={2} />
-                        <Line type="monotone" dataKey="Psico" stroke="#B794F4" dot={false} strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+'use client'
 
-            </div>nt'
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, getSession, canEditEval, canSeePrivateNotes, canSeePsychNotes, scoreColor, type Player, type Team, type Jornada, type Evaluation, type PlayerMeeting, type PlayerPsych } from '@/lib/supabase'
