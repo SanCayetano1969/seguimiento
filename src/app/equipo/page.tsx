@@ -410,7 +410,9 @@ function EquipoContent() {
       resultado_propio: parseInt(resultForm.propio) || 0,
       resultado_rival: parseInt(resultForm.rival) || 0
     }).eq('id', editingResult.id)
-    setTeamMatches(ms => ms.map(m => m.id === editingResult.id ? { ...m, resultado_propio: parseInt(resultForm.propio)||0, resultado_rival: parseInt(resultForm.rival)||0 } : m))
+    setTeamMatches(ms => ms.map((m: any) => m.id === editingResult.id
+      ? { ...m, resultado_propio: parseInt(resultForm.propio)||0, resultado_rival: parseInt(resultForm.rival)||0 }
+      : m))
     setEditingResult(null)
   }
 
@@ -1250,64 +1252,51 @@ function EquipoContent() {
         </div>
       )}
 
-
-      {/* CALENDARIO + CLASIFICACIÓN */}
-      <div style={{ margin: '0 0 4px 0' }}>
-        <button onClick={() => setShowCalendar(v => !v)}
+      {/* CALENDARIO */}
+      <div style={{ marginBottom: 4 }}>
+        <button onClick={() => setShowCalendar((v: boolean) => !v)}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface)', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--gold)' }}>📅 Calendario & Clasificación</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--gold)' }}>Calendario</span>
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showCalendar ? '▲' : '▼'} {teamMatches.length} partidos</span>
         </button>
-
         {showCalendar && (
           <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
-            {/* Clasificación calculada */}
             {(() => {
-              // Calcular stats del equipo
               let pg=0,pp=0,pe=0,gf=0,gc=0
-              teamMatches.forEach(m => {
+              teamMatches.forEach((m: any) => {
                 if (m.resultado_propio == null) return
                 gf += m.resultado_propio; gc += m.resultado_rival
                 if (m.resultado_propio > m.resultado_rival) pg++
                 else if (m.resultado_propio < m.resultado_rival) pp++
                 else pe++
               })
-              const pts = pg*3+pe
-              const pj = pg+pp+pe
+              const pts = pg*3+pe, pj = pg+pp+pe
               return pj > 0 ? (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16, background: 'var(--surface2)', borderRadius: 10, padding: '10px 14px', justifyContent: 'space-around' }}>
-                  {[['PJ',pj],['PG',pg],['PE',pe],['PP',pp],['GF',gf],['GC',gc],['DG',gf-gc],['PTS',pts]].map(([k,v]) => (
+                <div style={{ display:'flex', gap:8, marginBottom:16, background:'var(--surface2)', borderRadius:10, padding:'10px 14px', justifyContent:'space-around' }}>
+                  {([['PJ',pj],['PG',pg],['PE',pe],['PP',pp],['GF',gf],['GC',gc],['DG',gf-gc],['PTS',pts]] as [string,number][]).map(([k,v]) => (
                     <div key={k} style={{ textAlign:'center' }}>
-                      <div style={{ fontWeight:800, fontSize: k==='PTS'?22:17, color: k==='PTS'?'var(--gold)':'var(--text)' }}>{v}</div>
+                      <div style={{ fontWeight:800, fontSize:k==='PTS'?22:17, color:k==='PTS'?'var(--gold)':'var(--text)' }}>{v}</div>
                       <div style={{ fontSize:10, color:'var(--text-muted)' }}>{k}</div>
                     </div>
                   ))}
                 </div>
               ) : null
             })()}
-
-            {/* Lista de jornadas */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {teamMatches.map(m => {
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {teamMatches.map((m: any) => {
                 const jugado = m.resultado_propio != null
                 const ganado = jugado && m.resultado_propio > m.resultado_rival
                 const perdido = jugado && m.resultado_propio < m.resultado_rival
-                const empate = jugado && m.resultado_propio === m.resultado_rival
                 return (
-                  <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'var(--surface2)', borderRadius:8,
-                    borderLeft: jugado ? '3px solid ' + (ganado?'#22c55e':perdido?'#ef4444':'#f59e0b') : '3px solid var(--border)' }}>
+                  <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'var(--surface2)', borderRadius:8, borderLeft:'3px solid '+(jugado?(ganado?'#22c55e':perdido?'#ef4444':'#f59e0b'):'var(--border)') }}>
                     <div style={{ minWidth:24, fontWeight:700, fontSize:11, color:'var(--text-muted)' }}>J{m.jornada}</div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>
-                        {m.local ? '🏠' : '✈️'} {m.rival}
-                      </div>
-                      {m.fecha && <div style={{ fontSize:10, color:'var(--text-muted)' }}>{new Date(m.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}{m.hora ? ' · '+m.hora : ''}</div>}
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{m.local?'🏠':'✈️'} {m.rival}</div>
+                      {m.fecha && <div style={{ fontSize:10, color:'var(--text-muted)' }}>{new Date(m.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
                     </div>
                     {jugado ? (
                       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <div style={{ fontWeight:800, fontSize:16, color: ganado?'#22c55e':perdido?'#ef4444':'#f59e0b' }}>
-                          {m.resultado_propio}–{m.resultado_rival}
-                        </div>
+                        <div style={{ fontWeight:800, fontSize:16, color:ganado?'#22c55e':perdido?'#ef4444':'#f59e0b' }}>{m.resultado_propio}–{m.resultado_rival}</div>
                         <button onClick={() => { setEditingResult(m); setResultForm({propio:String(m.resultado_propio),rival:String(m.resultado_rival)}) }}
                           style={{ background:'none',border:'none',cursor:'pointer',fontSize:14,color:'var(--text-muted)',padding:2 }}>✏️</button>
                       </div>
@@ -1324,24 +1313,20 @@ function EquipoContent() {
           </div>
         )}
       </div>
-
-      {/* MODAL RESULTADO */}
       {editingResult && (
-        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24 }}>
-          <div className="card" style={{ width:'100%',maxWidth:320 }}>
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24 }} onClick={() => setEditingResult(null)}>
+          <div className="card" style={{ width:'100%',maxWidth:320 }} onClick={(e: any) => e.stopPropagation()}>
             <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>Resultado</div>
-            <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>J{editingResult.jornada} · {editingResult.local?'vs':'@'} {editingResult.rival}</div>
+            <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>J{editingResult.jornada} · {editingResult.rival}</div>
             <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
               <div style={{ flex:1 }}>
                 <div className="label">San Cayetano</div>
-                <input className="input" type="number" min="0" max="20" value={resultForm.propio}
-                  onChange={e => setResultForm(p => ({...p, propio:e.target.value}))} />
+                <input className="input" type="number" min="0" max="20" value={resultForm.propio} onChange={(e: any) => setResultForm((p: any) => ({...p,propio:e.target.value}))} />
               </div>
               <div style={{ fontSize:20, fontWeight:800, color:'var(--text-muted)', marginTop:16 }}>–</div>
               <div style={{ flex:1 }}>
                 <div className="label">{editingResult.rival}</div>
-                <input className="input" type="number" min="0" max="20" value={resultForm.rival}
-                  onChange={e => setResultForm(p => ({...p, rival:e.target.value}))} />
+                <input className="input" type="number" min="0" max="20" value={resultForm.rival} onChange={(e: any) => setResultForm((p: any) => ({...p,rival:e.target.value}))} />
               </div>
             </div>
             <div style={{ display:'flex', gap:10 }}>
@@ -1351,7 +1336,6 @@ function EquipoContent() {
           </div>
         </div>
       )}
-
       {loading ? (
         <div className="empty-state"><div className="loader animate-spin" /></div>
       ) : (
