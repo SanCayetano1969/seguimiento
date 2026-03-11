@@ -248,6 +248,7 @@ function EquipoContent() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [evalDetail, setEvalDetail] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
+  const [playerReports, setPlayerReports] = useState<any[]>([])
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
@@ -463,18 +464,18 @@ function EquipoContent() {
       }
     }
     if(pdfComment.trim()){
-      doc.setFillColor(20,32,56);doc.roundedRect(mg,y,pw-mg*2,6,2,2,'F')
-      doc.setTextColor(212,175,55);doc.setFontSize(9);doc.setFont('helvetica','bold')
+      doc.setFillColor(240,240,248);doc.roundedRect(mg,y,pw-mg*2,6,2,2,'F')
+      doc.setTextColor(10,20,40);doc.setFontSize(9);doc.setFont('helvetica','bold')
       doc.text('Comentario del entrenador',mg+3,y+5);y+=8
-      doc.setTextColor(220,220,220);doc.setFont('helvetica','normal');doc.setFontSize(8)
+      doc.setTextColor(30,30,50);doc.setFont('helvetica','normal');doc.setFontSize(8)
       const l1=doc.splitTextToSize(pdfComment,pw-mg*2-4)
       doc.text(l1,mg+3,y);y+=l1.length*4.5+8
     }
     if(pdfObjectives.trim()){
-      doc.setFillColor(20,32,56);doc.roundedRect(mg,y,pw-mg*2,6,2,2,'F')
-      doc.setTextColor(212,175,55);doc.setFontSize(9);doc.setFont('helvetica','bold')
+      doc.setFillColor(240,240,248);doc.roundedRect(mg,y,pw-mg*2,6,2,2,'F')
+      doc.setTextColor(10,20,40);doc.setFontSize(9);doc.setFont('helvetica','bold')
       doc.text('Objetivos',mg+3,y+5);y+=8
-      doc.setTextColor(220,220,220);doc.setFont('helvetica','normal');doc.setFontSize(8)
+      doc.setTextColor(30,30,50);doc.setFont('helvetica','normal');doc.setFontSize(8)
       const l2=doc.splitTextToSize(pdfObjectives,pw-mg*2-4)
       doc.text(l2,mg+3,y)
     }
@@ -482,6 +483,24 @@ function EquipoContent() {
     doc.setTextColor(100,100,100);doc.setFontSize(7);doc.setFont('helvetica','normal')
     doc.text('CD San Cayetano - Documento confidencial',mg,292)
     doc.text(format(new Date(),'dd/MM/yyyy HH:mm'),pw-mg,292,{align:'right'})
+    // Guardar referencia del informe en Supabase
+    const pdfBlob = doc.output('blob')
+    const fileName = 'report_' + selected.id + '_' + Date.now() + '.pdf'
+    const { data: uploadData } = await supabase.storage.from('player-photos').upload('reports/' + fileName, pdfBlob, { contentType: 'application/pdf', upsert: false })
+    const { data: urlData } = supabase.storage.from('player-photos').getPublicUrl('reports/' + fileName)
+    await supabase.from('player_reports').insert({
+      player_id: selected.id,
+      team_id: selected.team_id,
+      created_by: session.id,
+      created_by_name: session.name,
+      comment: pdfComment,
+      objectives: pdfObjectives,
+      eval_ids: pdfSelectedEvals,
+      pdf_url: urlData?.publicUrl || null
+    })
+    // Recargar reports
+    const { data: rpData } = await supabase.from('player_reports').select('*').eq('player_id', selected.id).order('created_at', { ascending: false })
+    setPlayerReports(rpData || [])
     doc.save('informe_'+selected.name.replace(/\s+/g,'_')+'.pdf')
     setShowPdfModal(false);setPdfComment('');setPdfObjectives('')
   }
@@ -504,6 +523,7 @@ function EquipoContent() {
       { key: 'ficha', label: 'Ficha' },
       ...(canEdit ? [{ key: 'eval', label: 'Evaluar' }] : []),
       { key: 'evaluaciones', label: 'Evaluaciones' },
+      { key: 'informes', label: 'Informes' },
       ...(canMeetings ? [{ key: 'reuniones', label: 'Reuniones' }] : []),
       ...(canPsych ? [{ key: 'psico', label: 'Psicologo' }] : []),
     ]
@@ -856,6 +876,53 @@ function EquipoContent() {
         )}
 
         {/* REUNIONES */}
+        {tab === 'informes' && (
+          <div style={{ padding: '0 4px' }}>
+            {playerReports.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40, fontSize: 14 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📄</div>
+                Sin informes generados
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {playerReports.map((rp: any) => (
+                  <div key={rp.id} style={{ background: 'var(--surface2)', borderRadius: 12, padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--gold)' }}>
+                          {rp.created_at ? format(parseISO(rp.created_at), "d MMM yyyy 'a las' HH:mm", { locale: es }) : '-'}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                          Generado por {rp.created_by_name || 'desconocido'}
+                        </div>
+                      </div>
+                      {rp.pdf_url && (
+                        <a href={rp.pdf_url} target="_blank" rel="noreferrer"
+                          style={{ background: 'var(--gold)', color: '#0a1428', borderRadius: 8, padding: '6px 12px', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                          ⬇ PDF
+                        </a>
+                      )}
+                    </div>
+                    {rp.comment && (
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                        <span style={{ fontWeight: 600 }}>Obs: </span>{rp.comment}
+                      </div>
+                    )}
+                    {rp.objectives && (
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                        <span style={{ fontWeight: 600 }}>Obj: </span>{rp.objectives}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                      {rp.eval_ids?.length || 0} eval{rp.eval_ids?.length !== 1 ? 's' : ''} incluida{rp.eval_ids?.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === 'reuniones' && canMeetings && (
           <div style={{ padding: '16px' }}>
             <div className="card-sm" style={{ marginBottom: 12 }}>
