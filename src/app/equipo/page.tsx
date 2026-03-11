@@ -1210,9 +1210,64 @@ function EquipoContent() {
       {/* CALENDARIO */}
       <div style={{ marginBottom: 4 }}>
         <button onClick={() => setShowCalendar((v: boolean) => !v)}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--surface)', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--gold)' }}>Calendario</span>
-          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showCalendar ? '▲' : '▼'} {teamMatches.length} partidos</span>
+          style={{ width: '100%', padding: '10px 16px', background: 'var(--surface)', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+          {/* Fila título siempre visible */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: showCalendar ? 0 : 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--gold)' }}>📅 Calendario</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showCalendar ? '▲ cerrar' : '▼ ver todo'}</span>
+          </div>
+          {/* Resumen solo cuando está cerrado */}
+          {!showCalendar && teamMatches.length > 0 && (() => {
+            let pg=0,pp=0,pe=0,gf=0,gc=0
+            teamMatches.forEach((m: any) => {
+              if (m.resultado_propio == null) return
+              gf += m.resultado_propio; gc += m.resultado_rival
+              if (m.resultado_propio > m.resultado_rival) pg++
+              else if (m.resultado_propio < m.resultado_rival) pp++
+              else pe++
+            })
+            const pts = pg*3+pe
+            const jugados = teamMatches.filter((m: any) => m.resultado_propio != null)
+            const ultimo = jugados[jugados.length - 1]
+            const proximo = teamMatches.find((m: any) => m.resultado_propio == null)
+            return (
+              <div style={{ display:'flex', gap:8, alignItems:'stretch' }}>
+                {/* Clasificación mini */}
+                <div style={{ display:'flex', gap:6, alignItems:'center', background:'var(--surface2)', borderRadius:8, padding:'6px 10px', flex:1 }}>
+                  {[['PJ',pg+pp+pe],['PG',pg],['PE',pe],['PP',pp]].map(([k,v]: any) => (
+                    <div key={k} style={{ textAlign:'center', minWidth:24 }}>
+                      <div style={{ fontWeight:800, fontSize:13, color:'var(--text)' }}>{v}</div>
+                      <div style={{ fontSize:9, color:'var(--text-muted)' }}>{k}</div>
+                    </div>
+                  ))}
+                  <div style={{ width:1, background:'var(--border)', alignSelf:'stretch', margin:'0 2px' }} />
+                  <div style={{ textAlign:'center' }}>
+                    <div style={{ fontWeight:900, fontSize:16, color:'var(--gold)' }}>{pts}</div>
+                    <div style={{ fontSize:9, color:'var(--text-muted)' }}>PTS</div>
+                  </div>
+                </div>
+                {/* Último resultado */}
+                {ultimo && (
+                  <div style={{ background:'var(--surface2)', borderRadius:8, padding:'6px 10px', minWidth:80, textAlign:'center',
+                    borderLeft:'3px solid '+(ultimo.resultado_propio>ultimo.resultado_rival?'#22c55e':ultimo.resultado_propio<ultimo.resultado_rival?'#ef4444':'#f59e0b') }}>
+                    <div style={{ fontSize:9, color:'var(--text-muted)', marginBottom:2 }}>Último · J{ultimo.jornada}</div>
+                    <div style={{ fontWeight:900, fontSize:15, color: ultimo.resultado_propio>ultimo.resultado_rival?'#22c55e':ultimo.resultado_propio<ultimo.resultado_rival?'#ef4444':'#f59e0b' }}>
+                      {ultimo.resultado_propio}–{ultimo.resultado_rival}
+                    </div>
+                    <div style={{ fontSize:9, color:'var(--text-muted)', marginTop:1 }}>{ultimo.local?'🏠':'✈️'} {ultimo.rival.split(' ')[0]}</div>
+                  </div>
+                )}
+                {/* Próximo partido */}
+                {proximo && (
+                  <div style={{ background:'var(--surface2)', borderRadius:8, padding:'6px 10px', minWidth:80, textAlign:'center', borderLeft:'3px solid var(--border)' }}>
+                    <div style={{ fontSize:9, color:'var(--text-muted)', marginBottom:2 }}>Próximo · J{proximo.jornada}</div>
+                    <div style={{ fontWeight:700, fontSize:11, color:'var(--text)' }}>{proximo.local?'🏠':'✈️'} {proximo.rival.split(' ')[0]}</div>
+                    {proximo.fecha && <div style={{ fontSize:9, color:'var(--gold)', marginTop:2 }}>{new Date(proximo.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </button>
         {showCalendar && (
           <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
