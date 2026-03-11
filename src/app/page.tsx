@@ -36,7 +36,7 @@ export default function LoginPage() {
     localStorage.setItem('sc_access_code', trimmed)
     if (user?.id) localStorage.setItem('sc_user_id', user.id)
 
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && Notification.permission === 'granted') {
+    try { if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try {
         const reg = await navigator.serviceWorker.register('/sw.js')
         await navigator.serviceWorker.ready
@@ -52,7 +52,7 @@ export default function LoginPage() {
           body: JSON.stringify({ subscription: sub.toJSON(), userId: user.id })
         })
       } catch(e) { console.error('Push auto:', e) }
-    }
+    } } catch(pushErr) { console.error('Push init error:', pushErr) }
 
     if (['admin', 'coordinator'].includes(user.role)) { router.push('/club') }
     else { router.push('/dashboard') }
