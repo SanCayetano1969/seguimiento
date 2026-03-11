@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, canEditAgenda, type Event, type Team } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday } from 'date-fns'
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday, addDays, addWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌' }
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
+const WEEKDAYS = ['L','M','X','J','V','S','D']
 
 export default function AgendaPage() {
   const router = useRouter()
@@ -19,7 +20,7 @@ export default function AgendaPage() {
   const [selectedDay, setDay] = useState<Date | null>(new Date())
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm]       = useState<Partial<Event & { time_str: string }>>({})
+  const [form, setForm]       = useState<Partial<Event & { time_str: string, recurrence: string, recurrence_end: string, recurrence_days: number[] }>>({})
   const [saving, setSaving]   = useState(false)
   const canEdit = canEditAgenda(session?.role || 'coach')
 
@@ -32,7 +33,6 @@ export default function AgendaPage() {
     setLoading(true)
     const start = format(startOfMonth(month), 'yyyy-MM-dd')
     const end   = format(endOfMonth(month), 'yyyy-MM-dd')
-
     const [{ data: evData }, { data: teamsData }] = await Promise.all([
       supabase.from('events').select('*, teams(name,category)')
         .gte('date', start).lte('date', end)
@@ -47,32 +47,75 @@ export default function AgendaPage() {
   async function saveEvent() {
     if (!form.title || !form.date || !form.type) return
     setSaving(true)
-    const payload = {
-      title: form.title, date: form.date, type: form.type,
+
+    const recurrence = form.recurrence || 'none'
+    const groupId = recurrence !== 'none' ? crypto.randomUUID() : null
+
+    // Generar fechas si es periodico
+    const dates: string[] = []
+    if (recurrence !== 'none' && form.recurrence_end && form.recurrence_days && form.recurrence_days.length > 0) {
+      let cur = new Date(form.date + 'T12:00:00')
+      const endDate = new Date(form.recurrence_end + 'T12:00:00')
+      const step = recurrence === 'biweekly' ? 14 : 7
+      while (cur <= endDate) {
+        // getDay: 0=Dom,1=Lun...6=Sab -> convertir a L=0,M=1...D=6
+        const dow = (cur.getDay() + 6) % 7
+        if (form.recurrence_days.includes(dow)) {
+          dates.push(format(cur, 'yyyy-MM-dd'))
+        }
+        cur = addDays(cur, 1)
+      }
+    } else {
+      dates.push(form.date)
+    }
+
+    const basePayload = {
+      title: form.title, type: form.type,
       team_id: form.team_id || null, time: form.time_str || null,
       location: form.location || null, notes: form.notes || null,
       created_by: session!.id, updated_by: session!.id,
+      recurrence: recurrence !== 'none' ? recurrence : null,
+      recurrence_end: form.recurrence_end || null,
+      recurrence_group_id: groupId,
     }
+
     if (form.id) {
-      await supabase.from('events').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', form.id)
+      // Editar solo este evento
+      await supabase.from('events').update({ ...basePayload, date: form.date, updated_at: new Date().toISOString() }).eq('id', form.id)
     } else {
-      await supabase.from('events').insert(payload)
+      // Insertar todas las ocurrencias
+      const rows = dates.map(d => ({ ...basePayload, date: d }))
+      await supabase.from('events').insert(rows)
     }
+
     setSaving(false)
     setShowForm(false)
     setForm({})
     loadData()
   }
 
-  async function deleteEvent(id: string) {
-    await supabase.from('events').delete().eq('id', id)
+  async function deleteEvent(id: string, groupId?: string | null) {
+    if (groupId) {
+      const choice = window.confirm('Eliminar solo este evento o todos los de la serie?\n\nAceptar = solo este\nCancelar = toda la serie')
+      if (choice) {
+        await supabase.from('events').delete().eq('id', id)
+      } else {
+        await supabase.from('events').delete().eq('recurrence_group_id', groupId)
+      }
+    } else {
+      await supabase.from('events').delete().eq('id', id)
+    }
     loadData()
   }
 
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
   const dayEvents = selectedDay ? events.filter(e => isSameDay(parseISO(e.date), selectedDay)) : []
-  // Fill start of week
   const startPad = (startOfMonth(month).getDay() + 6) % 7
+
+  const toggleDay = (d: number) => {
+    const cur = form.recurrence_days || []
+    setForm(f => ({ ...f, recurrence_days: cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d] }))
+  }
 
   if (!session) return null
 
@@ -82,13 +125,12 @@ export default function AgendaPage() {
         <div style={{ fontWeight: 700, fontSize: 16 }}>📅 Agenda</div>
         {canEdit && (
           <button className="btn btn-gold btn-sm" onClick={() => {
-            setForm({ date: selectedDay ? format(selectedDay, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'), type: 'entrenamiento' })
+            setForm({ date: selectedDay ? format(selectedDay, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'), type: 'entrenamiento', recurrence: 'none', recurrence_days: [] })
             setShowForm(true)
           }}>+ Evento</button>
         )}
       </div>
 
-      {/* Month nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
         <button className="btn btn-ghost btn-sm" onClick={() => setMonth(m => subMonths(m, 1))}>‹</button>
         <span style={{ fontWeight: 600, fontSize: 15, textTransform: 'capitalize' }}>
@@ -97,15 +139,12 @@ export default function AgendaPage() {
         <button className="btn btn-ghost btn-sm" onClick={() => setMonth(m => addMonths(m, 1))}>›</button>
       </div>
 
-      {/* Calendar grid */}
       <div style={{ padding: '0 16px' }}>
-        {/* Weekday headers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
           {['L','M','X','J','V','S','D'].map(d => (
             <div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', padding: '4px 0' }}>{d}</div>
           ))}
         </div>
-        {/* Days */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
           {Array.from({ length: startPad }, (_, i) => <div key={`pad-${i}`} />)}
           {days.map(day => {
@@ -113,18 +152,13 @@ export default function AgendaPage() {
             const isSelected = selectedDay && isSameDay(day, selectedDay)
             const today = isToday(day)
             return (
-              <button
-                key={day.toISOString()}
-                onClick={() => setDay(day)}
-                style={{
-                  aspectRatio: '1', borderRadius: 8, border: 'none', cursor: 'pointer',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  background: isSelected ? 'var(--gold)' : today ? 'var(--surface3)' : 'transparent',
-                  color: isSelected ? 'var(--navy-dark)' : today ? 'var(--text)' : !isSameMonth(day, month) ? 'var(--text-muted)' : 'var(--text)',
-                  fontWeight: today || isSelected ? 700 : 400,
-                  fontSize: 13, position: 'relative',
-                }}
-              >
+              <button key={day.toISOString()} onClick={() => setDay(day)} style={{
+                aspectRatio: '1', borderRadius: 8, border: 'none', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                background: isSelected ? 'var(--gold)' : today ? 'var(--surface3)' : 'transparent',
+                color: isSelected ? 'var(--navy-dark)' : today ? 'var(--text)' : !isSameMonth(day, month) ? 'var(--text-muted)' : 'var(--text)',
+                fontWeight: today || isSelected ? 700 : 400, fontSize: 13, position: 'relative',
+              }}>
                 {format(day, 'd')}
                 {hasEvents && !isSelected && (
                   <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: 'var(--gold)' }} />
@@ -137,17 +171,16 @@ export default function AgendaPage() {
 
       <div className="divider" />
 
-      {/* Selected day events */}
       <div style={{ padding: '0 16px' }}>
         <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, textTransform: 'capitalize' }}>
-          {selectedDay ? format(selectedDay, "EEEE d 'de' MMMM", { locale: es }) : 'Selecciona un día'}
+          {selectedDay ? format(selectedDay, "EEEE d 'de' MMMM", { locale: es }) : 'Selecciona un dia'}
         </div>
         {loading ? (
           <div className="empty-state"><div className="loader animate-spin" /></div>
         ) : dayEvents.length === 0 ? (
           <div className="empty-state" style={{ padding: '24px 0' }}>
             <div className="icon">📅</div>
-            <div style={{ fontSize: 13 }}>Sin eventos este día</div>
+            <div style={{ fontSize: 13 }}>Sin eventos este dia</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -155,29 +188,30 @@ export default function AgendaPage() {
               <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 24 }}>{EVENT_ICONS[ev.type]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600 }}>{ev.title}</div>
+                  <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {ev.title}
+                    {(ev as any).recurrence && (ev as any).recurrence !== 'none' && (
+                      <span style={{ fontSize: 10, background: 'var(--surface3)', color: 'var(--text-muted)', padding: '1px 5px', borderRadius: 4 }}>🔁</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                     {ev.time ? ev.time.slice(0, 5) + 'h' : ''}
-                    {ev.location ? ` · ${ev.location}` : ''}
+                    {ev.location ? ' · ' + ev.location : ''}
                   </div>
                   {(ev as any).teams && (
-                    <span className="badge" style={{ background: 'var(--gold-dim)', color: 'var(--gold)', marginTop: 4, fontSize: 11 }}>
-                      {(ev as any).teams.name}
-                    </span>
+                    <span className="badge" style={{ background: 'var(--gold-dim)', color: 'var(--gold)', marginTop: 4, fontSize: 11 }}>{(ev as any).teams.name}</span>
                   )}
                   {!ev.team_id && (
-                    <span className="badge" style={{ background: 'var(--surface3)', color: 'var(--text-muted)', marginTop: 4, fontSize: 11 }}>
-                      Todo el club
-                    </span>
+                    <span className="badge" style={{ background: 'var(--surface3)', color: 'var(--text-muted)', marginTop: 4, fontSize: 11 }}>Todo el club</span>
                   )}
                   {ev.notes && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{ev.notes}</p>}
                 </div>
                 {canEdit && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: 12 }}
-                      onClick={() => { setForm({ ...ev, time_str: ev.time || '' }); setShowForm(true) }}>✏️</button>
+                      onClick={() => { setForm({ ...ev, time_str: ev.time || '', recurrence: (ev as any).recurrence || 'none', recurrence_days: [] }); setShowForm(true) }}>✏️</button>
                     <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px', fontSize: 12 }}
-                      onClick={() => deleteEvent(ev.id)}>✕</button>
+                      onClick={() => deleteEvent(ev.id, (ev as any).recurrence_group_id)}>✕</button>
                   </div>
                 )}
               </div>
@@ -186,10 +220,9 @@ export default function AgendaPage() {
         )}
       </div>
 
-      {/* Form modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-handle" />
             <h3 style={{ fontWeight: 700, marginBottom: 16 }}>{form.id ? 'Editar evento' : 'Nuevo evento'}</h3>
 
@@ -203,13 +236,13 @@ export default function AgendaPage() {
               ))}
             </div>
 
-            <label className="label">Título</label>
+            <label className="label">Titulo</label>
             <input className="input" style={{ marginBottom: 12 }} value={form.title || ''}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nombre del evento" />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
-                <label className="label">Fecha</label>
+                <label className="label">Fecha inicio</label>
                 <input type="date" className="input" value={form.date || ''}
                   onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
               </div>
@@ -220,7 +253,7 @@ export default function AgendaPage() {
               </div>
             </div>
 
-            <label className="label">Equipo (vacío = todo el club)</label>
+            <label className="label">Equipo (vacio = todo el club)</label>
             <select className="input" style={{ marginBottom: 12 }} value={form.team_id || ''}
               onChange={e => setForm(f => ({ ...f, team_id: e.target.value || undefined }))}>
               <option value="">Todo el club</option>
@@ -229,11 +262,55 @@ export default function AgendaPage() {
 
             <label className="label">Lugar</label>
             <input className="input" style={{ marginBottom: 12 }} value={form.location || ''}
-              onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Campo, instalación..." />
+              onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Campo, instalacion..." />
 
             <label className="label">Notas</label>
-            <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={form.notes || ''}
+            <textarea className="input" rows={2} style={{ marginBottom: 12 }} value={form.notes || ''}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Observaciones..." />
+
+            {/* REPETICION - solo si no es edicion */}
+            {!form.id && (
+              <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px', marginBottom: 16, border: '1px solid var(--border)' }}>
+                <label className="label" style={{ marginBottom: 8 }}>🔁 Repeticion</label>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  {[
+                    { val: 'none', label: 'No repetir' },
+                    { val: 'weekly', label: 'Semanal' },
+                    { val: 'biweekly', label: 'Quincenal' },
+                  ].map(opt => (
+                    <button key={opt.val}
+                      className={`btn btn-sm ${(form.recurrence || 'none') === opt.val ? 'btn-gold' : 'btn-ghost'}`}
+                      onClick={() => setForm(f => ({ ...f, recurrence: opt.val }))}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {(form.recurrence === 'weekly' || form.recurrence === 'biweekly') && (
+                  <>
+                    <label className="label" style={{ marginBottom: 6 }}>Dias de la semana</label>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                      {WEEKDAYS.map((d, i) => (
+                        <button key={i}
+                          onClick={() => toggleDay(i)}
+                          style={{
+                            width: 34, height: 34, borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                            background: (form.recurrence_days || []).includes(i) ? 'var(--gold)' : 'var(--surface3)',
+                            color: (form.recurrence_days || []).includes(i) ? 'var(--navy-dark)' : 'var(--text-muted)',
+                          }}>
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+
+                    <label className="label">Repetir hasta</label>
+                    <input type="date" className="input"
+                      value={form.recurrence_end || ''}
+                      onChange={e => setForm(f => ({ ...f, recurrence_end: e.target.value }))} />
+                  </>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-ghost btn-full" onClick={() => setShowForm(false)}>Cancelar</button>
