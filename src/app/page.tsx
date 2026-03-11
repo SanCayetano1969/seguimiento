@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     if (err || !user) {
       localStorage.removeItem('sc_access_code')
-      setError('CÃ³digo incorrecto. Consulta con el coordinador.')
+      setError('Codigo incorrecto. Consulta con el coordinador.')
       setLoading(false)
       return
     }
@@ -77,7 +77,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     const trimmed = code.trim().toLowerCase()
-    if (!trimmed) { setError('Introduce tu cÃ³digo de acceso'); setLoading(false); return }
+    if (!trimmed) { setError('Introduce tu codigo de acceso'); setLoading(false); return }
     await doLogin(trimmed)
   }
 
@@ -112,7 +112,7 @@ export default function LoginPage() {
         <div style={s.divider} />
 
         <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', marginBottom: 20 }}>
-          Introduce tu cÃ³digo de acceso para continuar
+          Introduce tu codigo de acceso para continuar
         </p>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -121,7 +121,7 @@ export default function LoginPage() {
             <input
               className="input"
               type="text"
-              placeholder="CÃ³digo de acceso"
+              placeholder="Codigo de acceso"
               value={code}
               onChange={e => setCode(e.target.value)}
               style={{ paddingLeft: 40, fontSize: 16 }}
@@ -143,12 +143,12 @@ export default function LoginPage() {
           >
             {loading
               ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} />
-              : 'â Entrar'}
+              : '-> Entrar'}
           </button>
         </form>
 
         <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 24 }}>
-          v2.0 Â· Temporada 2024/25
+          v2.0 · Temporada 2024/25
         </p>
       </div>
     </div>
