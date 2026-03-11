@@ -30,6 +30,7 @@ export default function ClubPage() {
   const [loading, setLoading]   = useState(true)
   const [tab, setTab]           = useState<'overview'|'agenda'|'anuncios'>('overview')
   const [showAnnModal, setShowAnnModal] = useState(false)
+  const [lastEvalDays, setLastEvalDays] = useState<Record<string, number>>({})
   const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
 
   useEffect(() => {
@@ -61,6 +62,27 @@ export default function ClubPage() {
       supabase.from('messages').select('*', { count: 'exact', head: true })
         .eq('to_user_id', session!.id).eq('read', false),
     ])
+
+    // Última jornada con fecha por equipo
+    const { data: jornadasData } = await supabase
+      .from('jornadas')
+      .select('team_id, date')
+      .not('date', 'is', null)
+      .order('date', { ascending: false })
+
+    const daysMap: Record<string, number> = {}
+    if (jornadasData) {
+      const seen = new Set<string>()
+      const now = new Date()
+      for (const j of jornadasData) {
+        if (!seen.has(j.team_id)) {
+          seen.add(j.team_id)
+          const diff = Math.floor((now.getTime() - new Date(j.date).getTime()) / (1000 * 60 * 60 * 24))
+          daysMap[j.team_id] = diff
+        }
+      }
+    }
+    setLastEvalDays(daysMap)
 
     const ORDER = ["Alevin","Alevin","Infantil","Cadete","Juvenil","Amateur"]
     const sorted = (tData || []).sort((a,b) => {
@@ -181,8 +203,21 @@ export default function ClubPage() {
                   >
                     <div style={{ width: 4, height: 40, borderRadius: 2, background: TEAM_COLORS[i % TEAM_COLORS.length], flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: 'white' }}>{t.team_name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.total_players} jugadores · {t.total_evaluations} evaluaciones</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {t.team_name}
+                        {(lastEvalDays[t.team_id] === undefined || lastEvalDays[t.team_id] > 15) && (
+                          <span title="Sin evaluaciones en los últimos 15 días" style={{ fontSize: 13, lineHeight: 1 }}>⚠️</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {t.total_players} jugadores · {t.total_evaluations} evaluaciones
+                        {lastEvalDays[t.team_id] !== undefined && lastEvalDays[t.team_id] <= 15
+                          ? <span style={{ color: 'var(--green)', marginLeft: 4 }}>· hace {lastEvalDays[t.team_id]}d</span>
+                          : lastEvalDays[t.team_id] !== undefined
+                            ? <span style={{ color: 'var(--orange)', marginLeft: 4 }}>· hace {lastEvalDays[t.team_id]}d</span>
+                            : <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>· sin evaluar</span>
+                        }
+                      </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontWeight: 800, fontSize: 18, color: scoreColor(t.avg_global) }}>{t.avg_global?.toFixed(1) || '—'}</div>
