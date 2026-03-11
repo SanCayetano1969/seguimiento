@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
-import PushInit from '@/components/PushInit'
+
 
 export const metadata: Metadata = {
   title: 'CD San Cayetano',
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {children}
-        <PushInit />
+
       </body>
     </html>
   )
