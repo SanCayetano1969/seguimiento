@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, getSession, canEditEval, canSeePrivateNotes, canSeePsychNotes, scoreColor, type Player, type Team, type Jornada, type Evaluation, type PlayerMeeting, type PlayerPsych } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from 'recharts'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, startOfWeek, subWeeks, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const CRITERIA = {
@@ -175,6 +175,47 @@ function EvalDetail({ ev, jornadas, position, onBack }: { ev: any, jornadas: any
   )
 }
 
+function getWeekOptions() {
+  const options = []
+  const today = new Date()
+  for (let i = 0; i < 4; i++) {
+    const monday = startOfWeek(subWeeks(today, i), { weekStartsOn: 1 })
+    const sunday = addDays(monday, 6)
+    options.push({
+      label: `Semana del ${format(monday, 'd MMM', { locale: es })} al ${format(sunday, 'd MMM', { locale: es })}`,
+      date: format(monday, 'yyyy-MM-dd'),
+    })
+  }
+  return options
+}
+
+async function getOrCreateJornada(teamId: string, weekDate: string): Promise<string> {
+  // Buscar jornada existente para esa semana
+  const { data: existing } = await supabase
+    .from('jornadas')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('date', weekDate)
+    .single()
+  if (existing) return existing.id
+
+  // Obtener numero siguiente
+  const { data: all } = await supabase
+    .from('jornadas')
+    .select('number')
+    .eq('team_id', teamId)
+    .order('number', { ascending: false })
+    .limit(1)
+  const nextNumber = all && all.length > 0 ? (all[0].number + 1) : 1
+
+  const { data: created } = await supabase
+    .from('jornadas')
+    .insert({ team_id: teamId, date: weekDate, number: nextNumber, type: 'semanal' })
+    .select('id')
+    .single()
+  return created!.id
+}
+
 function EquipoContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -193,6 +234,7 @@ function EquipoContent() {
   const [tab, setTab] = useState('stats')
   const [evalForm, setEvalForm] = useState<any>({})
   const [selectedJornada, setJornada] = useState('')
+  const [selectedWeek, setSelectedWeek] = useState(getWeekOptions()[0].date)
   const [saving, setSaving] = useState(false)
   const [noteText, setNoteText] = useState('')
   const [addingNote, setAddingNote] = useState(false)
@@ -293,9 +335,10 @@ function EquipoContent() {
   }
 
   async function saveEval() {
-    if (!selected || !selectedJornada || !session) return
+    if (!selected || !session) return
     setSaving(true)
-    const payload = { jornada_id: selectedJornada, player_id: selected.id, team_id: team.id, evaluator_id: session.id, ...evalForm }
+    const jornadaId = await getOrCreateJornada(team.id, selectedWeek)
+    const payload = { jornada_id: jornadaId, player_id: selected.id, team_id: team.id, evaluator_id: session.id, ...evalForm }
     await supabase.from('evaluations').upsert(payload, { onConflict: 'jornada_id,player_id' })
     setSaving(false)
     const { data } = await supabase.from('evaluations').select('*').eq('player_id', selected.id).order('created_at', { ascending: false })
@@ -560,9 +603,9 @@ function EquipoContent() {
         {/* EVALUAR */}
         {tab === 'eval' && canEdit && (
           <div style={{ padding: '16px' }}>
-            <label className="label">Jornada</label>
-            <select className="input" style={{ marginBottom: 16 }} value={selectedJornada} onChange={e => setJornada(e.target.value)}>
-              {jornadas.map(j => <option key={j.id} value={j.id}>J{j.number} {j.date ? `· ${j.date}` : ''} · {j.type}</option>)}
+            <label className="label">Semana</label>
+            <select className="input" style={{ marginBottom: 16 }} value={selectedWeek} onChange={e => setSelectedWeek(e.target.value)}>
+              {getWeekOptions().map(w => <option key={w.date} value={w.date}>{w.label}</option>)}
             </select>
             {/* Fisica */}
             <div style={{ marginBottom: 16 }}>
