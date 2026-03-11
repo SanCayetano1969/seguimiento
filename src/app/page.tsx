@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     if (err || !user) {
       localStorage.removeItem('sc_access_code')
-      setError('Código incorrecto. Consulta con el coordinador.')
+      setError('CÃ³digo incorrecto. Consulta con el coordinador.')
       setLoading(false)
       return
     }
@@ -47,6 +47,24 @@ export default function LoginPage() {
       if (user?.id) localStorage.setItem('sc_user_id', user.id)
       if (user?.id) localStorage.setItem('sc_user_id', user.id)
 
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js')
+        await navigator.serviceWorker.ready
+        const existing = await reg.pushManager.getSubscription()
+        const vapidKey = 'BHlb3xmtWsnOCgVsglf42o4BoSuscOtux0O-TxtwSzVe2Sk5Qo0a2TJC9belJlUrE52cAt9JmVvgMyGDeDLDBNw'
+        const pad = '='.repeat((4 - vapidKey.length % 4) % 4)
+        const b64 = (vapidKey + pad).replace(/-/g, '+').replace(/_/g, '/')
+        const appKey = Uint8Array.from([...atob(b64)].map((ch) => ch.charCodeAt(0)))
+        const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey })
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub.toJSON(), userId: user.id })
+        })
+      } catch(e) { console.error('Push auto:', e) }
+    }
+
     if (['admin', 'coordinator'].includes(user.role)) {
       router.push('/club')
     } else {
@@ -59,7 +77,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     const trimmed = code.trim().toLowerCase()
-    if (!trimmed) { setError('Introduce tu código de acceso'); setLoading(false); return }
+    if (!trimmed) { setError('Introduce tu cÃ³digo de acceso'); setLoading(false); return }
     await doLogin(trimmed)
   }
 
@@ -94,16 +112,16 @@ export default function LoginPage() {
         <div style={s.divider} />
 
         <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', marginBottom: 20 }}>
-          Introduce tu código de acceso para continuar
+          Introduce tu cÃ³digo de acceso para continuar
         </p>
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ position: 'relative' }}>
-            <span style={s.icon}>🔑</span>
+            <span style={s.icon}>ð</span>
             <input
               className="input"
               type="text"
-              placeholder="Código de acceso"
+              placeholder="CÃ³digo de acceso"
               value={code}
               onChange={e => setCode(e.target.value)}
               style={{ paddingLeft: 40, fontSize: 16 }}
@@ -125,12 +143,12 @@ export default function LoginPage() {
           >
             {loading
               ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} />
-              : '→ Entrar'}
+              : 'â Entrar'}
           </button>
         </form>
 
         <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 24 }}>
-          v2.0 · Temporada 2024/25
+          v2.0 Â· Temporada 2024/25
         </p>
       </div>
     </div>
