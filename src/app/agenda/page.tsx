@@ -7,6 +7,24 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { es } from 'date-fns/locale'
 
 const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌' }
+
+const TEAM_COLORS: Record<string, string> = {
+  'Infantil A':  '#3b82f6',
+  'Infantil B':  '#22c55e',
+  'Infantil C':  '#a855f7',
+  'Cadete A':    '#f97316',
+  'Cadete B':    '#ec4899',
+  'Juvenil':     '#eab308',
+  'Alevín A':    '#06b6d4',
+  'Amateur':     '#ef4444',
+}
+function teamColor(name?: string) {
+  if (!name) return 'var(--gold)'
+  for (const k of Object.keys(TEAM_COLORS)) {
+    if (name.includes(k.split(' ')[0]) && name.includes(k.split(' ')[1] || k.split(' ')[0])) return TEAM_COLORS[k]
+  }
+  return 'var(--gold)'
+}
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
 const WEEKDAYS = ['L','M','X','J','V','S','D']
 
@@ -161,7 +179,7 @@ export default function AgendaPage() {
               }}>
                 {format(day, 'd')}
                 {hasEvents && !isSelected && (
-                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: 'var(--gold)' }} />
+                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: teamColor(dayEvs[0]?.team_name) }} />
                 )}
               </button>
             )
@@ -185,7 +203,7 @@ export default function AgendaPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {dayEvents.map(ev => (
-              <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: '4px solid ' + teamColor(ev.team_name), paddingLeft: 12 }}>
                 <span style={{ fontSize: 24 }}>{EVENT_ICONS[ev.type]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
