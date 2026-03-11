@@ -3,6 +3,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, setSession } from '@/lib/supabase'
 
+
+function urlB64ToUint8Array(b64: string) {
+  const raw = atob(b64)
+  const arr = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i)
+  return arr
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [code, setCode] = useState('')
@@ -44,7 +52,7 @@ export default function LoginPage() {
         const vapidKey = 'BHlb3xmtWsnOCgVsglf42o4BoSuscOtux0O-TxtwSzVe2Sk5Qo0a2TJC9belJlUrE52cAt9JmVvgMyGDeDLDBNw'
         const pad = '='.repeat((4 - vapidKey.length % 4) % 4)
         const b64 = (vapidKey + pad).replace(/-/g, '+').replace(/_/g, '/')
-        const appKey = Uint8Array.from([...atob(b64)].map((ch) => ch.charCodeAt(0)))
+        const appKey = urlB64ToUint8Array(b64)
         const sub = existing || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey })
         await fetch('/api/push/subscribe', {
           method: 'POST',
