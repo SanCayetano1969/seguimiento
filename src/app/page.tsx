@@ -101,7 +101,7 @@ export default function LoginPage() {
           {error && <div style={s.errorBox}>{error}</div>}
           <button className="btn btn-gold btn-full" type="submit" disabled={loading}
             style={{ marginTop: 4, padding: '14px', fontSize: 15, fontWeight: 700 }}>
-            {loading ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} /> : '>> Entrar'}
+            {loading ? <span className="loader animate-spin" style={{ width: 18, height: 18 }} /> : '→ Entrar'}
           </button>
         </form>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 24 }}>
