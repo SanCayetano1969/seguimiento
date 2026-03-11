@@ -1273,7 +1273,7 @@ function EquipoContent() {
               const pts = pg*3+pe, pj = pg+pp+pe
               return pj > 0 ? (
                 <div style={{ display:'flex', gap:8, marginBottom:16, background:'var(--surface2)', borderRadius:10, padding:'10px 14px', justifyContent:'space-around' }}>
-                  {([['PJ',pj],['PG',pg],['PE',pe],['PP',pp],['GF',gf],['GC',gc],['DG',gf-gc],['PTS',pts]] as [string,number][]).map(([k,v]) => (
+                  {[['PJ',pj],['PG',pg],['PE',pe],['PP',pp],['GF',gf],['GC',gc],['DG',gf-gc],['PTS',pts]].map(([k,v]: any) => (
                     <div key={k} style={{ textAlign:'center' }}>
                       <div style={{ fontWeight:800, fontSize:k==='PTS'?22:17, color:k==='PTS'?'var(--gold)':'var(--text)' }}>{v}</div>
                       <div style={{ fontSize:10, color:'var(--text-muted)' }}>{k}</div>
