@@ -1,4 +1,50 @@
-'use client'
+'use clie
+            <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 12 }}>Evolución y perfil</div>
+          <div style={{ padding: '16px' }}>
+            {evals.length === 0 ? (
+              <div className="empty-state"><div className="icon">📊</div><div>Sin evaluaciones todavia</div></div>
+            ) : (
+              <>
+                <div className="card" style={{ marginBottom: 12 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Perfil del jugador</div>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <RadarChart data={avgData}>
+                      <PolarGrid stroke="var(--border)" />
+                      <PolarAngleAxis dataKey="area" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                      <Radar dataKey="value" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
+                  {avgData.map(d => (
+                    <div key={d.area} className="card-sm" style={{ textAlign: 'center', padding: '10px 4px' }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: scoreColor(d.value) }}>{d.value || '—'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{d.area}</div>
+                    </div>
+                  ))}
+                </div>
+                {evals.length > 1 && (
+                  <div className="card">
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Evolucion</div>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <LineChart data={evoData}>
+                        <XAxis dataKey="j" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                        <Tooltip contentStyle={{ background: 'var(--surface2)', border: 'none', borderRadius: 8, fontSize: 11 }} />
+                        <Line type="monotone" dataKey="Fisica" stroke="#5bb8e8" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="Tecnica" stroke="#68D391" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="Tactica" stroke="#F6AD55" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="Psico" stroke="#B794F4" dot={false} strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+            </div>nt'
 import { useEffect, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, getSession, canEditEval, canSeePrivateNotes, canSeePsychNotes, scoreColor, type Player, type Team, type Jornada, type Evaluation, type PlayerMeeting, type PlayerPsych } from '@/lib/supabase'
@@ -249,6 +295,11 @@ function EquipoContent() {
   const [evalDetail, setEvalDetail] = useState<any>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [playerReports, setPlayerReports] = useState<any[]>([])
+  const [matches, setMatches] = useState<any[]>([])
+  const [matchStats, setMatchStats] = useState<any[]>([])
+  const [selectedMatch, setSelectedMatch] = useState<string>('')
+  const [matchForm, setMatchForm] = useState<any>({})
+  const [savingMatch, setSavingMatch] = useState(false)
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
@@ -339,6 +390,49 @@ function EquipoContent() {
       const { data: ps } = await supabase.from('player_psych').select('*').eq('player_id', p.id).order('created_at', { ascending: false })
       setPsychs(ps || [])
     }
+    const { data: rpData } = await supabase.from('player_reports').select('*').eq('player_id', p.id).order('created_at', { ascending: false })
+    setPlayerReports(rpData || [])
+    const { data: mData } = await supabase.from('matches').select('*').eq('team_id', p.team_id).order('fecha', { ascending: false })
+    setMatches(mData || [])
+    const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', p.id)
+    setMatchStats(msData || [])
+  }
+
+
+  async function saveMatchStat() {
+    if (!selected || !selectedMatch || !session) return
+    setSavingMatch(true)
+    const existing = matchStats.find((s: any) => s.match_id === selectedMatch)
+    const payload = {
+      match_id: selectedMatch,
+      player_id: selected.id,
+      team_id: selected.team_id,
+      created_by: session.id,
+      titular: matchForm.titular || false,
+      minutos: parseInt(matchForm.minutos) || 0,
+      goles: parseInt(matchForm.goles) || 0,
+      asistencias: parseInt(matchForm.asistencias) || 0,
+      tiros: parseInt(matchForm.tiros) || 0,
+      tiros_puerta: parseInt(matchForm.tiros_puerta) || 0,
+      recuperaciones: parseInt(matchForm.recuperaciones) || 0,
+      intercepciones: parseInt(matchForm.intercepciones) || 0,
+      entradas: parseInt(matchForm.entradas) || 0,
+      pases_completos: parseInt(matchForm.pases_completos) || 0,
+      pases_fallados: parseInt(matchForm.pases_fallados) || 0,
+      faltas_cometidas: parseInt(matchForm.faltas_cometidas) || 0,
+      faltas_recibidas: parseInt(matchForm.faltas_recibidas) || 0,
+      amarillas: parseInt(matchForm.amarillas) || 0,
+      rojas: parseInt(matchForm.rojas) || 0,
+      cuartos_jugados: matchForm.cuartos || [],
+    }
+    if (existing) {
+      await supabase.from('player_match_stats').update(payload).eq('id', existing.id)
+    } else {
+      await supabase.from('player_match_stats').insert(payload)
+    }
+    const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', selected.id)
+    setMatchStats(msData || [])
+    setSavingMatch(false)
   }
 
   async function saveEval() {
@@ -498,9 +592,6 @@ function EquipoContent() {
       eval_ids: pdfSelectedEvals,
       pdf_url: urlData?.publicUrl || null
     })
-    // Recargar reports
-    const { data: rpData } = await supabase.from('player_reports').select('*').eq('player_id', selected.id).order('created_at', { ascending: false })
-    setPlayerReports(rpData || [])
     doc.save('informe_'+selected.name.replace(/\s+/g,'_')+'.pdf')
     setShowPdfModal(false);setPdfComment('');setPdfObjectives('')
   }
@@ -519,10 +610,10 @@ function EquipoContent() {
     const scores = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10]
 
     const tabs = [
-      { key: 'stats', label: 'Stats' },
       { key: 'ficha', label: 'Ficha' },
       ...(canEdit ? [{ key: 'eval', label: 'Evaluar' }] : []),
       { key: 'evaluaciones', label: 'Evaluaciones' },
+      { key: 'partidos', label: 'Partidos' },
       { key: 'informes', label: 'Informes' },
       ...(canMeetings ? [{ key: 'reuniones', label: 'Reuniones' }] : []),
       ...(canPsych ? [{ key: 'psico', label: 'Psicologo' }] : []),
@@ -583,51 +674,6 @@ function EquipoContent() {
         </div>
 
         {/* STATS */}
-        {tab === 'stats' && (
-          <div style={{ padding: '16px' }}>
-            {evals.length === 0 ? (
-              <div className="empty-state"><div className="icon">📊</div><div>Sin evaluaciones todavia</div></div>
-            ) : (
-              <>
-                <div className="card" style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>Perfil del jugador</div>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <RadarChart data={avgData}>
-                      <PolarGrid stroke="var(--border)" />
-                      <PolarAngleAxis dataKey="area" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                      <Radar dataKey="value" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.2} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
-                  {avgData.map(d => (
-                    <div key={d.area} className="card-sm" style={{ textAlign: 'center', padding: '10px 4px' }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: scoreColor(d.value) }}>{d.value || '—'}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{d.area}</div>
-                    </div>
-                  ))}
-                </div>
-                {evals.length > 1 && (
-                  <div className="card">
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Evolucion</div>
-                    <ResponsiveContainer width="100%" height={120}>
-                      <LineChart data={evoData}>
-                        <XAxis dataKey="j" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                        <Tooltip contentStyle={{ background: 'var(--surface2)', border: 'none', borderRadius: 8, fontSize: 11 }} />
-                        <Line type="monotone" dataKey="Fisica" stroke="#5bb8e8" dot={false} strokeWidth={2} />
-                        <Line type="monotone" dataKey="Tecnica" stroke="#68D391" dot={false} strokeWidth={2} />
-                        <Line type="monotone" dataKey="Tactica" stroke="#F6AD55" dot={false} strokeWidth={2} />
-                        <Line type="monotone" dataKey="Psico" stroke="#B794F4" dot={false} strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* FICHA */}
         {tab === 'ficha' && (
           <div style={{ padding: '16px' }}>
             {/* Foto en ficha */}
@@ -876,6 +922,164 @@ function EquipoContent() {
         )}
 
         {/* REUNIONES */}
+
+        {tab === 'partidos' && (
+          <div style={{ padding: '0 4px' }}>
+            {matches.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40, fontSize: 14 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>⚽</div>
+                Sin partidos en el calendario
+              </div>
+            ) : (
+              <>
+                <select className="input" style={{ marginBottom: 16 }}
+                  value={selectedMatch}
+                  onChange={e => {
+                    setSelectedMatch(e.target.value)
+                    const existing = matchStats.find((s: any) => s.match_id === e.target.value)
+                    if (existing) {
+                      setMatchForm({
+                        titular: existing.titular,
+                        minutos: existing.minutos,
+                        goles: existing.goles,
+                        asistencias: existing.asistencias,
+                        tiros: existing.tiros,
+                        tiros_puerta: existing.tiros_puerta,
+                        recuperaciones: existing.recuperaciones,
+                        intercepciones: existing.intercepciones,
+                        entradas: existing.entradas,
+                        pases_completos: existing.pases_completos,
+                        pases_fallados: existing.pases_fallados,
+                        faltas_cometidas: existing.faltas_cometidas,
+                        faltas_recibidas: existing.faltas_recibidas,
+                        amarillas: existing.amarillas,
+                        rojas: existing.rojas,
+                        cuartos: existing.cuartos_jugados || [],
+                      })
+                    } else {
+                      setMatchForm({})
+                    }
+                  }}>
+                  <option value="">— Selecciona partido —</option>
+                  {matches.map((m: any) => (
+                    <option key={m.id} value={m.id}>
+                      J{m.jornada} · {m.fecha ? format(parseISO(m.fecha), 'd MMM', { locale: es }) : '-'} · {m.local ? 'vs' : '@'} {m.rival} {m.resultado_propio != null ? '(' + m.resultado_propio + '-' + m.resultado_rival + ')' : ''}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedMatch && (() => {
+                  const isF8 = team?.modalidad?.includes('F8') || team?.modalidad?.includes('f8')
+                  const mf = matchForm
+                  const setF = (k: string, v: any) => setMatchForm((p: any) => ({ ...p, [k]: v }))
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {isF8 ? (
+                        <div>
+                          <div className="label">Cuartos jugados</div>
+                          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                            {[1,2,3,4].map(q => (
+                              <label key={q} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: (mf.cuartos||[]).includes(q) ? 'var(--gold)' : 'var(--surface2)', borderRadius: 8, cursor: 'pointer', color: (mf.cuartos||[]).includes(q) ? '#0a1428' : 'var(--text)', fontWeight: 700 }}>
+                                <input type="checkbox" style={{ display: 'none' }}
+                                  checked={(mf.cuartos||[]).includes(q)}
+                                  onChange={() => setF('cuartos', (mf.cuartos||[]).includes(q) ? (mf.cuartos||[]).filter((x:number)=>x!==q) : [...(mf.cuartos||[]), q])} />
+                                {q}º
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                          <div>
+                            <div className="label">Titular</div>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                              {['Titular','Suplente'].map(v => (
+                                <button key={v} onClick={() => setF('titular', v==='Titular')}
+                                  style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                                    background: (v==='Titular' ? mf.titular : !mf.titular && mf.titular!==undefined) ? 'var(--gold)' : 'var(--surface2)',
+                                    color: (v==='Titular' ? mf.titular : !mf.titular && mf.titular!==undefined) ? '#0a1428' : 'var(--text)' }}>
+                                  {v}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="label">Minutos</div>
+                            <input className="input" type="number" min="0" max="120" value={mf.minutos||''} onChange={e=>setF('minutos',e.target.value)} />
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                        {[
+                          {k:'goles',label:'Goles',icon:'⚽'},
+                          {k:'asistencias',label:'Asist.',icon:'🎯'},
+                          {k:'amarillas',label:'Amarilla',icon:'🟨'},
+                          {k:'rojas',label:'Roja',icon:'🟥'},
+                          {k:'tiros',label:'Tiros',icon:'🔫'},
+                          {k:'tiros_puerta',label:'A puerta',icon:'🎳'},
+                          {k:'recuperaciones',label:'Recup.',icon:'💪'},
+                          {k:'intercepciones',label:'Interc.',icon:'✋'},
+                          {k:'entradas',label:'Entradas',icon:'🛡'},
+                          {k:'pases_completos',label:'Pases OK',icon:'✅'},
+                          {k:'pases_fallados',label:'Pases X',icon:'❌'},
+                          {k:'faltas_cometidas',label:'F.Comet.',icon:'⚠️'},
+                          {k:'faltas_recibidas',label:'F.Recib.',icon:'🤕'},
+                        ].map(({k,label,icon}) => (
+                          <div key={k}>
+                            <div className="label" style={{ fontSize: 11 }}>{icon} {label}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <button onClick={()=>setF(k,Math.max(0,(parseInt(mf[k])||0)-1))}
+                                style={{ width:28,height:28,borderRadius:6,border:'none',background:'var(--surface2)',color:'var(--text)',fontSize:16,cursor:'pointer',fontWeight:700 }}>−</button>
+                              <div style={{ flex:1,textAlign:'center',fontWeight:800,fontSize:18,color:'var(--gold)' }}>{mf[k]||0}</div>
+                              <button onClick={()=>setF(k,(parseInt(mf[k])||0)+1)}
+                                style={{ width:28,height:28,borderRadius:6,border:'none',background:'var(--surface2)',color:'var(--text)',fontSize:16,cursor:'pointer',fontWeight:700 }}>+</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button className="btn btn-gold btn-full" style={{ marginTop: 8 }}
+                        onClick={saveMatchStat} disabled={savingMatch}>
+                        {savingMatch ? 'Guardando...' : matchStats.find((s:any)=>s.match_id===selectedMatch) ? '✓ Actualizar stats' : '+ Guardar stats'}
+                      </button>
+                    </div>
+                  )
+                })()}
+
+                {/* Resumen stats del jugador */}
+                {matchStats.length > 0 && (
+                  <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 12 }}>Totales temporada</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                      {[
+                        {k:'goles',label:'Goles',icon:'⚽'},
+                        {k:'asistencias',label:'Asist.',icon:'🎯'},
+                        {k:'minutos',label:'Mins',icon:'⏱'},
+                        {k:'amarillas',label:'Amarillas',icon:'🟨'},
+                        {k:'rojas',label:'Rojas',icon:'🟥'},
+                        {k:'tiros',label:'Tiros',icon:'🔫'},
+                        {k:'tiros_puerta',label:'A puerta',icon:'🎳'},
+                        {k:'recuperaciones',label:'Recup.',icon:'💪'},
+                        {k:'pases_completos',label:'Pases OK',icon:'✅'},
+                      ].map(({k,label,icon}) => {
+                        const total = matchStats.reduce((s:number,ms:any)=>s+(ms[k]||0),0)
+                        return (
+                          <div key={k} style={{ background:'var(--surface2)',borderRadius:10,padding:'10px 8px',textAlign:'center' }}>
+                            <div style={{ fontSize:20 }}>{icon}</div>
+                            <div style={{ fontWeight:800,fontSize:20,color:'var(--gold)' }}>{total}</div>
+                            <div style={{ fontSize:10,color:'var(--text-muted)' }}>{label}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {tab === 'informes' && (
           <div style={{ padding: '0 4px' }}>
             {playerReports.length === 0 ? (
