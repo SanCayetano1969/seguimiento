@@ -16,9 +16,20 @@ type TeamOverview = {
   avg_fisica: number; avg_tecnica: number; avg_tactica: number; avg_psico: number; avg_global: number
 }
 
+function teamColor(name: string) {
+  const n = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  if (n.includes('infantil a')) return '#3b82f6'
+  if (n.includes('infantil b')) return '#22c55e'
+  if (n.includes('infantil c')) return '#a855f7'
+  if (n.includes('cadete a'))   return '#f97316'
+  if (n.includes('cadete b'))   return '#ec4899'
+  if (n.includes('juvenil'))    return '#eab308'
+  if (n.includes('alevin'))     return '#06b6d4'
+  if (n.includes('amateur'))    return '#ef4444'
+  return '#5bb8e8'
+}
+
 export default function ClubPage() {
-
-
   const router = useRouter()
   const session = getSession()
 
@@ -127,21 +138,6 @@ export default function ClubPage() {
     { area: 'Táctica',   value: +(teams.reduce((s,t) => s+(t.avg_tactica||0), 0)/Math.max(teams.length,1)).toFixed(1) },
     { area: 'Psicológ.', value: +(teams.reduce((s,t) => s+(t.avg_psico||0), 0)/Math.max(teams.length,1)).toFixed(1) },
   ]
-
-  function teamColor(name: string = '') {
-
-    const n = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-
-    if (n.includes('infantil a')) return '#3b82f6'
-    if (n.includes('infantil b')) return '#22c55e'
-    if (n.includes('infantil c')) return '#a855f7'
-    if (n.includes('cadete a'))   return '#f97316'
-    if (n.includes('cadete b'))   return '#ec4899'
-    if (n.includes('juvenil'))    return '#eab308'
-    if (n.includes('alevin'))     return '#06b6d4'
-    if (n.includes('amateur'))    return '#ef4444'
-    return '#5bb8e8'
-  }
 
   return (
     <div className="page-content">
@@ -266,13 +262,13 @@ export default function ClubPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {events.slice(0, 15).map((ev: any, evIdx: number) => (
-                  <div key={ev.id + '_wrap'}>
+                  <div key={ev.id}>
                     {(evIdx === 0 || upcomingEvents[evIdx-1]?.date !== ev.date) && (
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: evIdx === 0 ? '0 0 4px' : '10px 0 4px', borderTop: evIdx > 0 ? '1px solid var(--border)' : 'none' }}>
-                        {ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : ''}
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing:'0.06em', textTransform:'uppercase', padding: evIdx===0 ? '0 0 6px' : '12px 0 6px', borderTop: evIdx>0 ? '1px solid var(--border)' : 'none' }}>
+                        {new Date(ev.date+'T12:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}
                       </div>
                     )}
-                    <div className="card-sm" style={{ display: 'flex', gap: 10, alignItems: 'center', borderLeft: '3px solid ' + teamColor(ev.teams?.name), paddingLeft: 10 }}>
+                    <div className="card-sm" style={{ display: 'flex', gap: 10, alignItems: 'center', borderLeft: '3px solid '+teamColor(ev.teams?.name||''), paddingLeft: 10 }}>
                     <span className={`badge event-${ev.type}`}>{ev.type === 'partido' ? '⚽' : ev.type === 'entrenamiento' ? '🏃' : '🏆'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{ev.title}</div>
@@ -281,6 +277,7 @@ export default function ClubPage() {
                         {ev.time ? ` · ${ev.time.slice(0,5)}h` : ''}
                         {ev.teams ? ` · ${ev.teams.name}` : ' · Club'}
                       </div>
+                    </div>
                     </div>
                   </div>
                 ))}
