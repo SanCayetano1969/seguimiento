@@ -17,19 +17,7 @@ type TeamOverview = {
 }
 
 export default function ClubPage() {
-  function teamColor(name) {
-    if (!name) return 'var(--gold)'
-    const n = name.toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
-    if (n.includes('infantil a')) return '#3b82f6'
-    if (n.includes('infantil b')) return '#22c55e'
-    if (n.includes('infantil c')) return '#a855f7'
-    if (n.includes('cadete a'))   return '#f97316'
-    if (n.includes('cadete b'))   return '#ec4899'
-    if (n.includes('juvenil'))    return '#eab308'
-    if (n.includes('alevin'))     return '#06b6d4'
-    if (n.includes('amateur'))    return '#ef4444'
-    return '#5bb8e8'
-  }
+
 
   const router = useRouter()
   const session = getSession()
@@ -139,6 +127,21 @@ export default function ClubPage() {
     { area: 'Táctica',   value: +(teams.reduce((s,t) => s+(t.avg_tactica||0), 0)/Math.max(teams.length,1)).toFixed(1) },
     { area: 'Psicológ.', value: +(teams.reduce((s,t) => s+(t.avg_psico||0), 0)/Math.max(teams.length,1)).toFixed(1) },
   ]
+
+  function teamColor(name: string = '') {
+    const n = name.toLowerCase()
+      .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i')
+      .replace(/ó/g,'o').replace(/ú/g,'u')
+    if (n.includes('infantil a')) return '#3b82f6'
+    if (n.includes('infantil b')) return '#22c55e'
+    if (n.includes('infantil c')) return '#a855f7'
+    if (n.includes('cadete a'))   return '#f97316'
+    if (n.includes('cadete b'))   return '#ec4899'
+    if (n.includes('juvenil'))    return '#eab308'
+    if (n.includes('alevin'))     return '#06b6d4'
+    if (n.includes('amateur'))    return '#ef4444'
+    return '#5bb8e8'
+  }
 
   return (
     <div className="page-content">
