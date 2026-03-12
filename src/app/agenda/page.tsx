@@ -7,9 +7,8 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { es } from 'date-fns/locale'
 
 const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌' }
-function teamColor(name) {
-  if (!name) return 'var(--border)'
-  const n = name.toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
+function teamColor(t?: string): string {
+  const n = (t||'').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
   if (n.includes('infantil a')) return '#3b82f6'
   if (n.includes('infantil b')) return '#22c55e'
   if (n.includes('infantil c')) return '#a855f7'
@@ -18,7 +17,7 @@ function teamColor(name) {
   if (n.includes('juvenil'))    return '#eab308'
   if (n.includes('alevin'))     return '#06b6d4'
   if (n.includes('amateur'))    return '#ef4444'
-  return 'var(--border)'
+  return '#888'
 }
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
 const WEEKDAYS = ['L','M','X','J','V','S','D']
@@ -174,7 +173,7 @@ export default function AgendaPage() {
               }}>
                 {format(day, 'd')}
                 {hasEvents && !isSelected && (
-                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: teamColor(events.filter(e => isSameDay(parseISO(e.date), day))[0]?.teams?.name) }} />
+                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: teamColor(events.filter((e:any)=>isSameDay(parseISO(e.date),day))[0]?.teams?.name) }} />
                 )}
               </button>
             )
@@ -198,7 +197,7 @@ export default function AgendaPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {dayEvents.map(ev => (
-              <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: '4px solid ' + teamColor(ev.teams?.name), paddingLeft: 12 }}>
+              <div key={ev.id} className="card" style={{ display:'flex', gap:10, alignItems:'flex-start', borderLeft:'4px solid '+teamColor(ev.teams?.name), paddingLeft:12 }}>
                 <span style={{ fontSize: 24 }}>{EVENT_ICONS[ev.type]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
