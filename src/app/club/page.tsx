@@ -129,9 +129,9 @@ export default function ClubPage() {
   ]
 
   function teamColor(name: string = '') {
-    const n = name.toLowerCase()
-      .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i')
-      .replace(/ó/g,'o').replace(/ú/g,'u')
+
+    const n = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+
     if (n.includes('infantil a')) return '#3b82f6'
     if (n.includes('infantil b')) return '#22c55e'
     if (n.includes('infantil c')) return '#a855f7'
