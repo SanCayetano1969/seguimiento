@@ -8,7 +8,7 @@ import { es } from 'date-fns/locale'
 
 const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌' }
 function teamColor(name) {
-  if (!name) return 'var(--gold)'
+  if (!name) return 'var(--border)'
   const n = name.toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
   if (n.includes('infantil a')) return '#3b82f6'
   if (n.includes('infantil b')) return '#22c55e'
@@ -18,7 +18,7 @@ function teamColor(name) {
   if (n.includes('juvenil'))    return '#eab308'
   if (n.includes('alevin'))     return '#06b6d4'
   if (n.includes('amateur'))    return '#ef4444'
-  return 'var(--gold)'
+  return 'var(--border)'
 }
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
 const WEEKDAYS = ['L','M','X','J','V','S','D']
