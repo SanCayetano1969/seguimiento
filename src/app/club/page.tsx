@@ -212,7 +212,7 @@ export default function ClubPage() {
                     style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
                     onClick={() => router.push(`/equipo?team=${t.team_id}`)}
                   >
-                    <div style={{ width: 4, height: 40, borderRadius: 2, background: teamColor(t.name), flexShrink: 0 }} />
+                    <div style={{ width: 4, height: 40, borderRadius: 2, background: teamColor(t.team_name), flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 14, color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
                         {t.team_name}
