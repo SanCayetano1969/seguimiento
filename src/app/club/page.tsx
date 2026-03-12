@@ -17,14 +17,14 @@ type TeamOverview = {
 }
 
 function teamColor(name: string) {
-  const n = (name||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  const n = (name||'').toLowerCase()
   if (n.includes('infantil a')) return '#3b82f6'
   if (n.includes('infantil b')) return '#22c55e'
   if (n.includes('infantil c')) return '#a855f7'
   if (n.includes('cadete a'))   return '#f97316'
   if (n.includes('cadete b'))   return '#ec4899'
   if (n.includes('juvenil'))    return '#eab308'
-  if (n.includes('alevin'))     return '#06b6d4'
+  if (n.includes('lev'))        return '#06b6d4'
   if (n.includes('amateur'))    return '#ef4444'
   return '#5bb8e8'
 }
