@@ -263,7 +263,7 @@ export default function ClubPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {events.slice(0, 15).map((ev: any, evIdx: number) => (
                   <div key={ev.id}>
-                    {(evIdx === 0 || upcomingEvents[evIdx-1]?.date !== ev.date) && (
+                    {(evIdx === 0 || events[evIdx-1]?.date !== ev.date) && (
                       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing:'0.06em', textTransform:'uppercase', padding: evIdx===0 ? '0 0 6px' : '12px 0 6px', borderTop: evIdx>0 ? '1px solid var(--border)' : 'none' }}>
                         {new Date(ev.date+'T12:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}
                       </div>
