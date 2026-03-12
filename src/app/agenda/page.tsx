@@ -182,7 +182,7 @@ export default function AgendaPage() {
               }}>
                 {format(day, 'd')}
                 {hasEvents && !isSelected && (
-                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: teamColor(events.filter(e => isSameDay(parseISO(e.date), day))[0]?.team_name) }} />
+                  <span style={{ position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: '50%', background: teamColor(events.filter(e => isSameDay(parseISO(e.date), day))[0]?.teams?.name) }} />
                 )}
               </button>
             )
@@ -212,7 +212,7 @@ export default function AgendaPage() {
                     {ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
                   </div>
                 )}
-                <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: '4px solid ' + teamColor(ev.team_name), paddingLeft: 12 }}>
+                <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: '4px solid ' + teamColor(ev.teams?.name), paddingLeft: 12 }}>
                 <span style={{ fontSize: 24 }}>{EVENT_ICONS[ev.type]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
