@@ -7,22 +7,23 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 import { es } from 'date-fns/locale'
 
 const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌' }
-function teamColor(t?: string): string {
-  const n = (t||'').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
-  if (n.includes('infantil a')) return '#3b82f6'
-  if (n.includes('infantil b')) return '#22c55e'
-  if (n.includes('infantil c')) return '#a855f7'
-  if (n.includes('cadete a'))   return '#f97316'
-  if (n.includes('cadete b'))   return '#ec4899'
-  if (n.includes('juvenil'))    return '#eab308'
-  if (n.includes('alevin'))     return '#06b6d4'
-  if (n.includes('amateur'))    return '#ef4444'
-  return '#888'
-}
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
 const WEEKDAYS = ['L','M','X','J','V','S','D']
 
 export default function AgendaPage() {
+  function teamColor(t?: string): string {
+    const n = (t||'').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
+    if (n.includes('infantil a')) return '#3b82f6'
+    if (n.includes('infantil b')) return '#22c55e'
+    if (n.includes('infantil c')) return '#a855f7'
+    if (n.includes('cadete a'))   return '#f97316'
+    if (n.includes('cadete b'))   return '#ec4899'
+    if (n.includes('juvenil'))    return '#eab308'
+    if (n.includes('alevin'))     return '#06b6d4'
+    if (n.includes('amateur'))    return '#ef4444'
+    return '#888'
+  }
+
   const router = useRouter()
   const session = getSession()
 
