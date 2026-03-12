@@ -132,14 +132,6 @@ export default function AgendaPage() {
 
   if (!session) return null
 
-  // Agrupar eventos por día para mostrar cabecera
-  const eventsWithHeaders = dayEvents.reduce((acc, ev, idx) => {
-    const d = ev.date ? ev.date.substring(0, 10) : ''
-    const prev = idx > 0 ? dayEvents[idx-1].date?.substring(0,10) : null
-    acc.push({ showHeader: d !== prev, ev })
-    return acc
-  }, [] as {showHeader: boolean, ev: any}[])
-
   return (
     <div className="page-content">
       <div className="page-header" style={{ justifyContent: 'space-between' }}>
@@ -204,15 +196,9 @@ export default function AgendaPage() {
             <div style={{ fontSize: 13 }}>Sin eventos este dia</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {eventsWithHeaders.map(({ showHeader, ev }, idx) => (
-              <div key={ev.id + '_g'}>
-                {showHeader && (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: idx === 0 ? '0 0 4px' : '12px 0 4px', borderTop: idx > 0 ? '1px solid var(--border)' : 'none' }}>
-                    {ev.date ? new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
-                  </div>
-                )}
-                <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: '4px solid ' + teamColor(ev.teams?.name), paddingLeft: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {dayEvents.map(ev => (
+              <div key={ev.id} className="card" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: '4px solid ' + teamColor(ev.teams?.name), paddingLeft: 12 }}>
                 <span style={{ fontSize: 24 }}>{EVENT_ICONS[ev.type]}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -241,8 +227,6 @@ export default function AgendaPage() {
                       onClick={() => deleteEvent(ev.id, (ev as any).recurrence_group_id)}>✕</button>
                   </div>
                 )}
-              </div>
-                </div>
               </div>
             ))}
           </div>
