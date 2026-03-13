@@ -1212,7 +1212,7 @@ function EquipoContent() {
       )}
 
       {/* CUERPO TECNICO */}
-      {team && <CabeceraTecnicos team={team} onUpdated={() => loadData()} />}
+      {team && <CabeceraTecnicos team={team} onUpdated={() => loadTeamData(id)} />}
 
       {/* CALENDARIO */}
       <div style={{ marginBottom: 4 }}>
