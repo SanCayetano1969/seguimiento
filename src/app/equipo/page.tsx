@@ -280,7 +280,7 @@ function EquipoContent() {
 
   async function loadTeamData(id: string) {
     setLoading(true)
-    supabase.from('matches').select('*').eq('team_id', id).order('jornada', { ascending: true }).then(({ data }) => setTeamMatches(data || []))
+    supabase.from('matches').select('*').eq('team_id', id).order('jornada', { ascending: true }).then(({ data }) => { setTeamMatches(data || []); setMatches(data || []) })
     const [{ data: t }, { data: pl }, { data: j }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
       supabase.from('players').select('*').eq('team_id', id).order('dorsal'),
