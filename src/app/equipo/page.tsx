@@ -348,7 +348,7 @@ function EquipoContent() {
 
   async function openPlayer(p: any) {
     setSelected(p)
-    setTab('stats')
+    setTab('ficha')
     setEvalDetail(null)
     const { data } = await supabase.from('evaluations').select('*').eq('player_id', p.id).order('created_at', { ascending: false })
     setEvals(data || [])
