@@ -9,8 +9,9 @@ interface Props {
 
 const CAMPOS = [
   { key: 'entrenador_principal', label: 'Entrenador principal', icon: '👤' },
-  { key: 'segundo_entrenador',   label: '2º Entrenador',        icon: '👤' },
+  { key: 'segundo_entrenador',   label: '2º Entrenador',   icon: '👤' },
   { key: 'delegado',             label: 'Delegado',             icon: '🗂️' },
+  { key: 'liga',                 label: 'Liga',                 icon: '🏆' },
 ]
 
 export default function CabeceraTecnicos({ team, onUpdated }: Props) {
