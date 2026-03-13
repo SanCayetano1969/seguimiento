@@ -1,6 +1,5 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 interface Props {
   players: any[]
@@ -9,7 +8,10 @@ interface Props {
 
 export default function PlantillaDropdown({ players, teamId }: Props) {
   const [open, setOpen] = useState(false)
-  const router = useRouter()
+
+  function goToPlayer(playerId: string) {
+    window.location.href = '/equipo?team=' + teamId + '&player=' + playerId
+  }
 
   return (
     <div style={{ borderBottom: '1px solid var(--border)' }}>
@@ -19,10 +21,10 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
           cursor: 'pointer', borderBottom: open ? '1px solid var(--border)' : 'none', textAlign: 'left' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 600, fontSize: 13 }}>
-            👥 Plantilla ({players.length} jugadores)
+            Plantilla ({players.length} jugadores)
           </span>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {open ? '▲ cerrar' : '▼ ver todo'}
+            {open ? 'cerrar' : 'ver todo'}
           </span>
         </div>
         {!open && (
@@ -34,7 +36,7 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
               </span>
             ))}
             {players.length > 3 && (
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{players.length - 3} más</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{players.length - 3} mas</span>
             )}
           </div>
         )}
@@ -45,10 +47,7 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
           {players.map(p => (
             <div
               key={p.id}
-              onClick={e => {
-                e.stopPropagation()
-                router.push('/equipo?team=' + teamId + '&player=' + p.id)
-              }}
+              onClick={() => goToPlayer(p.id)}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 16px', borderBottom: '1px solid var(--border)',
                 cursor: 'pointer', background: 'var(--surface)' }}
@@ -56,12 +55,12 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface)' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
-                  minWidth: 24, textAlign: 'right' }}>#{p.dorsal}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)',
+                  minWidth: 28, textAlign: 'right' }}>#{p.dorsal}</span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    {p.position || 'Sin posición'}{p.birth_year ? ' · ' + p.birth_year : ''}
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.9 }}>
+                    {p.position || 'Sin posicion'}{p.birth_year ? ' · ' + p.birth_year : ''}
                   </div>
                 </div>
               </div>
