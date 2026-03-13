@@ -5,7 +5,7 @@ import jsPDF from 'jspdf'
 
 interface Props { team: any; players: any[]; jornadas: any[] }
 
-const MOTIVOS = ['Lesión','Enfermedad','Viaje','Ausencia entrenos','Castigo']
+const MOTIVOS = ['Lesión','Enfermedad','Viaje','Ausencia entrenos','Castigo','Decisión Técnica']
 const EQUIPACIONES = ['Azul','Roja']
 
 function formatFecha(str: string) {
@@ -178,7 +178,7 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
             <select className='input' style={{ marginBottom: 12 }} value={form.jornada_id}
               onChange={e => setForm(f => ({ ...f, jornada_id: e.target.value }))}>
               <option value=''>Sin jornada</option>
-              {jornadas.map(j => (
+              {jornadas.filter((j: any) => j.resultado_propio == null).map(j => (
                 <option key={j.id} value={j.id}>J{j.numero} - {j.rival || ''} {j.fecha ? '(' + j.fecha + ')' : ''}</option>
               ))}
             </select>
