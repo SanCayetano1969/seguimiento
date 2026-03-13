@@ -123,7 +123,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{open ? 'cerrar' : 'ver todo'}</span>
         </div>
       </button>
-      {!open && historial.length === 0 && (
+      {!open && (
           <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {historial.length === 0
                 ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin convocatorias</span>
