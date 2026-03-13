@@ -1211,6 +1211,9 @@ function EquipoContent() {
         </div>
       )}
 
+      {/* CUERPO TECNICO */}
+      {team && <CabeceraTecnicos team={team} onUpdated={() => loadData()} />}
+
       {/* CALENDARIO */}
       <div style={{ marginBottom: 4 }}>
         <button onClick={() => setShowCalendar((v: boolean) => !v)}
@@ -1350,9 +1353,6 @@ function EquipoContent() {
           </div>
         </div>
       )}
-      {/* CUERPO TECNICO */}
-      {team && <CabeceraTecnicos team={team} onUpdated={() => loadData()} />}
-
       {/* PLANTILLA */}
       {team && <PlantillaDropdown players={players} teamId={team.id} />}
 
