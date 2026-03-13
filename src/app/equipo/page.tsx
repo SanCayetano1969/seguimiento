@@ -291,6 +291,12 @@ function EquipoContent() {
     setJornadas(j || [])
     if (j && j.length > 0) setJornada(j[j.length - 1].id)
     setLoading(false)
+    // Abrir jugador si viene en la URL
+    const playerParam = params.get('player')
+    if (playerParam && pl) {
+      const found = pl.find((p: any) => p.id === playerParam)
+      if (found) openPlayer(found)
+    }
   }
 
   async function saveNewPlayer() {
