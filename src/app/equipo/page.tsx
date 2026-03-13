@@ -1360,7 +1360,7 @@ function EquipoContent() {
       {team && <EstadisticasEquipo team={team} matches={matches} />}
 
       {/* CONVOCATORIAS */}
-      {team && <Convocatorias team={team} players={players} jornadas={jornadas} />}
+      {team && <Convocatorias team={team} players={players} matches={matches} />}
       <BottomNav role={session.role} />
     </div>
   )
