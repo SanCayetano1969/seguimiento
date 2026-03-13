@@ -137,7 +137,7 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
 
   const totales = partidos.reduce((acc, m) => {
     const s = stats[m.id]
-    const goles = s?.goles_detalle || []
+    const goles = s?.goles_marcados_detalle || []
     // acumular opcionales por gol
     goles.forEach((g: any) => {
       if (g.periodo) acc.periodos[g.periodo] = (acc.periodos[g.periodo] || 0) + 1
