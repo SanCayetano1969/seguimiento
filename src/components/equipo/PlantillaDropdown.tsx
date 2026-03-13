@@ -10,18 +10,13 @@ interface Props {
 export default function PlantillaDropdown({ players, teamId }: Props) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
-  const visible = open ? players : players.slice(0, 3)
-
-  function goToPlayer(playerId: string) {
-    router.push(`/equipo?team=${teamId}&player=${playerId}`)
-  }
 
   return (
     <div style={{ borderBottom: '1px solid var(--border)' }}>
       <button
         onClick={() => setOpen(v => !v)}
         style={{ width: '100%', padding: '10px 16px', background: 'var(--surface)', border: 'none',
-          cursor: 'pointer', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+          cursor: 'pointer', borderBottom: open ? '1px solid var(--border)' : 'none', textAlign: 'left' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 600, fontSize: 13 }}>
             👥 Plantilla ({players.length} jugadores)
@@ -33,8 +28,8 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
         {!open && (
           <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {players.slice(0, 3).map(p => (
-              <span key={p.id} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface2)',
-                borderRadius: 4, padding: '2px 6px' }}>
+              <span key={p.id} style={{ fontSize: 11, color: 'var(--text-muted)',
+                background: 'var(--surface2)', borderRadius: 4, padding: '2px 6px' }}>
                 #{p.dorsal} {p.name}
               </span>
             ))}
@@ -50,12 +45,15 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
           {players.map(p => (
             <div
               key={p.id}
-              onClick={() => goToPlayer(p.id)}
+              onClick={e => {
+                e.stopPropagation()
+                router.push('/equipo?team=' + teamId + '&player=' + p.id)
+              }}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 16px', borderBottom: '1px solid var(--border)',
                 cursor: 'pointer', background: 'var(--surface)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface)')}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--surface)' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
@@ -67,7 +65,7 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>›</span>
+              <span style={{ fontSize: 18, color: 'var(--accent)' }}>›</span>
             </div>
           ))}
         </div>
