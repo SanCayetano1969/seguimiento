@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
 import jsPDF from 'jspdf'
 
-interface Props { team: any; players: any[]; jornadas: any[] }
+interface Props { team: any; players: any[]; matches: any[] }
 
 const MOTIVOS = ['Lesión','Enfermedad','Viaje','Ausencia entrenos','Castigo','Decisión Técnica']
 const EQUIPACIONES = ['Azul','Roja']
@@ -14,7 +14,7 @@ function formatFecha(str: string) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default function Convocatorias({ team, players, jornadas }: Props) {
+export default function Convocatorias({ team, players, matches }: Props) {
   const session = getSession()
   const isCoach = session?.role === 'coach' || session?.role === 'admin' || session?.role === 'coordinator'
   const [open, setOpen] = useState(false)
@@ -29,7 +29,7 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
 
   useEffect(() => {
     supabase.from('convocatorias')
-      .select('*, jornadas(numero,fecha,rival), convocatoria_jugadores(*, players(name,dorsal))')
+      .select('*, convocatoria_jugadores(*, players(name,dorsal))')
       .eq('team_id', team.id).order('created_at', { ascending: false })
       .then(({ data }) => setHistorial(data || []))
   }, [team.id, saving])
@@ -43,9 +43,13 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
 
   async function guardar() {
     setSaving(true)
+    const selectedMatch = matches.find((m: any) => m.id === form.jornada_id)
     const { data: conv } = await supabase.from('convocatorias').insert({
       team_id: team.id,
       jornada_id: form.jornada_id || null,
+      jornada_numero: selectedMatch?.jornada || null,
+      rival: selectedMatch?.rival || null,
+      fecha: selectedMatch?.fecha || null,
       hora: form.hora,
       lugar: form.lugar,
       equipacion: form.equipacion,
@@ -78,7 +82,7 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
     doc.text('CONVOCATORIA', pw/2, 18, { align: 'center' })
     doc.setFontSize(12); doc.setFont('helvetica','normal')
     doc.text(team.name || '', pw/2, 25, { align: 'center' })
-    const jornada = conv.jornadas
+    const jornada = conv.jornada_numero ? { numero: conv.jornada_numero, rival: conv.rival, fecha: conv.fecha } : null
     if (jornada) {
       doc.setFontSize(11)
       doc.text('Jornada ' + jornada.numero + ' - ' + (jornada.rival || '') + '  |  ' + formatFecha(jornada.fecha), pw/2, 32, { align: 'center' })
@@ -103,7 +107,7 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
     doc.line(14, y, pw - 14, y); y += 8
     doc.setFontSize(10)
     doc.text('Firmado por: ' + (team.entrenador_principal || 'El Entrenador Principal'), 14, y)
-    doc.save('convocatoria_j' + (jornada?.numero || '') + '_' + (team.name || '') + '.pdf')
+    doc.save('convocatoria_j' + (conv.jornada_numero || '') + '_' + (team.name || '').replace(/ /g,'_') + '.pdf')
     setGenerating(false)
   }
 
@@ -135,9 +139,9 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <div>
                   <span style={{ fontWeight: 700, fontSize: 13 }}>
-                    {conv.jornadas ? 'J' + conv.jornadas.numero + ' - ' + (conv.jornadas.rival || '') : 'Sin jornada'}
+                    {conv.jornada_numero ? 'J' + conv.jornada_numero + ' - ' + (conv.rival || '') : 'Sin jornada'}
                   </span>
-                  {conv.jornadas?.fecha && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{formatFecha(conv.jornadas.fecha)}</span>}
+                  {conv.fecha && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{formatFecha(conv.fecha)}</span>}
                 </div>
                 <button className='btn btn-sm btn-ghost' style={{ fontSize: 11 }}
                   onClick={() => generarPDF(conv)} disabled={generating}>PDF</button>
@@ -178,8 +182,8 @@ export default function Convocatorias({ team, players, jornadas }: Props) {
             <select className='input' style={{ marginBottom: 12 }} value={form.jornada_id}
               onChange={e => setForm(f => ({ ...f, jornada_id: e.target.value }))}>
               <option value=''>Sin jornada</option>
-              {jornadas.filter((j: any) => j.resultado_propio == null).map(j => (
-                <option key={j.id} value={j.id}>J{j.numero} - {j.rival || ''} {j.fecha ? '(' + j.fecha + ')' : ''}</option>
+              {matches.filter((m: any) => m.resultado_propio == null).map(m => (
+                <option key={m.id} value={m.id}>J{m.jornada} - {m.rival || ''} {m.fecha ? '(' + m.fecha + ')' : ''}</option>
               ))}
             </select>
 
