@@ -123,7 +123,19 @@ export default function Convocatorias({ team, players, matches }: Props) {
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{open ? 'cerrar' : 'ver todo'}</span>
         </div>
         {!open && historial.length === 0 && (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Sin convocatorias</div>
+          <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {historial.length === 0
+                ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin convocatorias</span>
+                : historial.slice(0, 2).map(c => (
+                    <span key={c.id} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface2)', borderRadius: 4, padding: '2px 8px' }}>
+                      J{c.jornada_numero} {c.rival ? '· ' + c.rival : ''}
+                    </span>
+                  ))
+              }
+              {historial.length > 2 && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>+{historial.length - 2} más</span>
+              )}
+            </div>
         )}
       </button>
 
