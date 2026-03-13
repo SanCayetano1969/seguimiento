@@ -1356,29 +1356,11 @@ function EquipoContent() {
       {/* PLANTILLA */}
       {team && <PlantillaDropdown players={players} teamId={team.id} />}
 
-      {loading ? (
-        <div className="empty-state"><div className="loader animate-spin" /></div>
-      ) : (
-        <div style={{ padding: '12px 0' }}>
-          {players.map(p => (
-            <button key={p.id} onClick={() => openPlayer(p)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-              <div style={{ width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', background: 'var(--surface3)', border: '1px solid var(--border)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {p.photo_url ? (
-                  <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--gold)' }}>{p.dorsal || '?'}</span>
-                )}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.position}</div>
-              </div>
-              <span style={{ color: 'var(--text-muted)' }}>›</span>
-            </button>
-          ))}
-          {players.length === 0 && <div className="empty-state"><div className="icon">👤</div><div>Sin jugadores en el equipo</div></div>}
-        </div>
-      )}
+      {/* ESTADISTICAS EQUIPO */}
+      {team && <EstadisticasEquipo team={team} matches={matches} />}
+
+      {/* CONVOCATORIAS */}
+      {team && <Convocatorias team={team} players={players} jornadas={jornadas} />}
       <BottomNav role={session.role} />
     </div>
   )
@@ -1400,12 +1382,6 @@ function NotesList({ notes, sessionId }: { notes: any[], sessionId: string }) {
         </div>
       ))}
       {notes.length === 0 && <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '16px 0' }}>Sin entradas todavia</div>}
-
-      {/* ESTADISTICAS EQUIPO */}
-      {team && matches && <EstadisticasEquipo team={team} matches={matches} />}
-
-      {/* CONVOCATORIAS */}
-      {team && players && jornadas && <Convocatorias team={team} players={players} jornadas={jornadas} />}
     </div>
   )
 }
