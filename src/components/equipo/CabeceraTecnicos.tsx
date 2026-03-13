@@ -9,8 +9,8 @@ interface Props {
 
 const CAMPOS = [
   { key: 'entrenador_principal', label: 'Entrenador principal', icon: '👤' },
-  { key: 'segundo_entrenador',   label: '2º Entrenador',   icon: '👤' },
-  { key: 'delegado',             label: 'Delegado',             icon: '🗂️' },
+  { key: 'segundo_entrenador',   label: '2º Entrenador',        icon: '👤' },
+  { key: 'delegado',             label: 'Delegado',             icon: '📋' },
   { key: 'liga',                 label: 'Liga',                 icon: '🏆' },
 ]
 
@@ -20,13 +20,25 @@ export default function CabeceraTecnicos({ team, onUpdated }: Props) {
   const [editing, setEditing] = useState<string | null>(null)
   const [val, setVal] = useState('')
   const [saving, setSaving] = useState(false)
+  // Estado local para mostrar valores actualizados inmediatamente
+  const [localVals, setLocalVals] = useState<Record<string,string>>({})
+
+  function getVal(key: string) {
+    return localVals[key] !== undefined ? localVals[key] : (team[key] || '')
+  }
 
   async function save(key: string) {
     setSaving(true)
-    await supabase.from('teams').update({ [key]: val }).eq('id', team.id)
+    const { error } = await supabase.from('teams').update({ [key]: val }).eq('id', team.id)
     setSaving(false)
-    setEditing(null)
-    onUpdated()
+    if (!error) {
+      setLocalVals(prev => ({ ...prev, [key]: val }))
+      setEditing(null)
+      onUpdated()
+    } else {
+      console.error('Error guardando:', error)
+      alert('Error al guardar: ' + error.message)
+    }
   }
 
   return (
@@ -37,29 +49,33 @@ export default function CabeceraTecnicos({ team, onUpdated }: Props) {
           {editing === key ? (
             <div style={{ display: 'flex', gap: 6, flex: 1 }}>
               <input
-                className="input"
-                style={{ flex: 1, height: 28, fontSize: 12, padding: '0 8px' }}
                 value={val}
                 onChange={e => setVal(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && save(key)}
+                onKeyDown={e => { if (e.key === 'Enter') save(key); if (e.key === 'Escape') setEditing(null) }}
+                style={{ flex: 1, fontSize: 13, padding: '2px 6px', background: 'var(--surface2)',
+                  border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)' }}
                 autoFocus
               />
-              <button className="btn btn-gold" style={{ height: 28, fontSize: 11, padding: '0 10px' }}
-                onClick={() => save(key)} disabled={saving}>
-                {saving ? '...' : 'OK'}
+              <button onClick={() => save(key)} disabled={saving}
+                style={{ fontSize: 12, padding: '2px 8px', background: 'var(--accent)',
+                  color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                {saving ? '...' : '✓'}
               </button>
-              <button className="btn btn-ghost" style={{ height: 28, fontSize: 11, padding: '0 8px' }}
-                onClick={() => setEditing(null)}>✕</button>
+              <button onClick={() => setEditing(null)}
+                style={{ fontSize: 12, padding: '2px 8px', background: 'var(--surface2)',
+                  color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}>
+                ✕
+              </button>
             </div>
           ) : (
             <span
-              style={{ fontSize: 13, color: team[key] ? 'var(--text)' : 'var(--text-muted)', flex: 1,
+              onClick={() => { if (canEdit) { setEditing(key); setVal(getVal(key)) } }}
+              style={{ fontSize: 13, color: getVal(key) ? 'var(--text)' : 'var(--text-muted)',
                 cursor: canEdit ? 'pointer' : 'default',
-                fontStyle: team[key] ? 'normal' : 'italic' }}
-              onClick={() => { if (canEdit) { setEditing(key); setVal(team[key] || '') } }}
+                fontStyle: getVal(key) ? 'normal' : 'italic' }}
             >
-              {team[key] || (canEdit ? 'Pulsa para añadir...' : '—')}
-              {canEdit && team[key] && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>✏️</span>}
+              {getVal(key) || (canEdit ? 'Pulsa para añadir...' : '—')}
+              {canEdit && getVal(key) && <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--text-muted)' }}>✎</span>}
             </span>
           )}
         </div>
