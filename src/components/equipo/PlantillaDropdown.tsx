@@ -20,7 +20,7 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
         style={{ width: '100%', padding: '10px 16px', background: 'var(--surface)', border: 'none',
           cursor: 'pointer', borderBottom: open ? '1px solid var(--border)' : 'none', textAlign: 'left' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 600, fontSize: 13 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent)' }}>
             Plantilla ({players.length} jugadores)
           </span>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -59,12 +59,12 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
                   minWidth: 28, textAlign: 'right' }}>#{p.dorsal}</span>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.9 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     {p.position || 'Sin posicion'}{p.birth_year ? ' · ' + p.birth_year : ''}
                   </div>
                 </div>
               </div>
-              <span style={{ fontSize: 18, color: 'var(--accent)' }}>›</span>
+              <span style={{ fontSize: 18, color: 'var(--accent)' }}>&rsaquo;</span>
             </div>
           ))}
         </div>
