@@ -137,13 +137,24 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
 
   const totales = partidos.reduce((acc, m) => {
     const s = stats[m.id]
+    const goles = s?.goles_detalle || []
+    // acumular opcionales por gol
+    goles.forEach((g: any) => {
+      if (g.periodo) acc.periodos[g.periodo] = (acc.periodos[g.periodo] || 0) + 1
+      if (g.zona_remate) acc.zona_remate[g.zona_remate] = (acc.zona_remate[g.zona_remate] || 0) + 1
+      if (g.tipo_remate) acc.tipo_remate[g.tipo_remate] = (acc.tipo_remate[g.tipo_remate] || 0) + 1
+      if (g.tipo_jugada) acc.tipo_jugada[g.tipo_jugada] = (acc.tipo_jugada[g.tipo_jugada] || 0) + 1
+      if (g.zona_inicio) acc.zona_inicio[g.zona_inicio] = (acc.zona_inicio[g.zona_inicio] || 0) + 1
+      if (g.toques) acc.toques[g.toques] = (acc.toques[g.toques] || 0) + 1
+    })
     return {
+      ...acc,
       gf: acc.gf + (s?.goles_marcados ?? m.resultado_propio ?? 0),
       gc: acc.gc + (s?.goles_encajados ?? m.resultado_rival ?? 0),
       am: acc.am + (s?.tarjetas_amarillas ?? 0),
       ro: acc.ro + (s?.tarjetas_rojas ?? 0),
     }
-  }, { gf: 0, gc: 0, am: 0, ro: 0 })
+  }, { gf: 0, gc: 0, am: 0, ro: 0, periodos: {} as Record<string,number>, zona_remate: {} as Record<string,number>, tipo_remate: {} as Record<string,number>, tipo_jugada: {} as Record<string,number>, zona_inicio: {} as Record<string,number>, toques: {} as Record<string,number> })
 
   return (
     <div style={{ marginBottom: 4 }}>
@@ -167,6 +178,53 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
         <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           {partidos.length === 0 && (
             <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>Sin partidos con resultado</div>
+          )}
+          {partidos.length > 0 && (
+            <div style={{ background: 'var(--surface2)', borderBottom: '2px solid var(--accent)', padding: '10px 14px', marginBottom: 2 }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1 }}>Totales</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>GF <b style={{ color: '#22c55e' }}>{totales.gf}</b></span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>GC <b style={{ color: '#ef4444' }}>{totales.gc}</b></span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>🟨 <b>{totales.am}</b></span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>🟥 <b>{totales.ro}</b></span>
+              </div>
+              {Object.keys(totales.periodos).length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
+                  <b style={{ color: 'var(--text)' }}>Periodo:</b>{' '}
+                  {Object.entries(totales.periodos).sort().map(([k,v]) => k + '×' + v).join('  ')}
+                </div>
+              )}
+              {Object.keys(totales.zona_remate).length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
+                  <b style={{ color: 'var(--text)' }}>Zona remate:</b>{' '}
+                  {Object.entries(totales.zona_remate).map(([k,v]) => k + '×' + v).join('  ')}
+                </div>
+              )}
+              {Object.keys(totales.tipo_remate).length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
+                  <b style={{ color: 'var(--text)' }}>Tipo remate:</b>{' '}
+                  {Object.entries(totales.tipo_remate).map(([k,v]) => k + '×' + v).join('  ')}
+                </div>
+              )}
+              {Object.keys(totales.tipo_jugada).length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
+                  <b style={{ color: 'var(--text)' }}>Tipo jugada:</b>{' '}
+                  {Object.entries(totales.tipo_jugada).map(([k,v]) => k + '×' + v).join('  ')}
+                </div>
+              )}
+              {Object.keys(totales.zona_inicio).length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>
+                  <b style={{ color: 'var(--text)' }}>Zona inicio:</b>{' '}
+                  {Object.entries(totales.zona_inicio).map(([k,v]) => k + '×' + v).join('  ')}
+                </div>
+              )}
+              {Object.keys(totales.toques).length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  <b style={{ color: 'var(--text)' }}>Toques:</b>{' '}
+                  {Object.entries(totales.toques).map(([k,v]) => k + '×' + v).join('  ')}
+                </div>
+              )}
+            </div>
           )}
           {partidos.map(m => {
             const f = forms[m.id] || {}
