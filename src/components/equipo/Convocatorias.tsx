@@ -122,7 +122,8 @@ export default function Convocatorias({ team, players, matches }: Props) {
           <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--gold)' }}>Convocatorias</span>
           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{open ? 'cerrar' : 'ver todo'}</span>
         </div>
-        {!open && historial.length === 0 && (
+      </button>
+      {!open && historial.length === 0 && (
           <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {historial.length === 0
                 ? <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin convocatorias</span>
@@ -137,7 +138,6 @@ export default function Convocatorias({ team, players, matches }: Props) {
               )}
             </div>
         )}
-      </button>
 
       {open && (
         <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '8px 16px' }}>
