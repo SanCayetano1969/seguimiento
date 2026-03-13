@@ -21,7 +21,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
   const [historial, setHistorial] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
-    jornada_id: '', hora: '', lugar: '', equipacion: 'Azul',
+    jornada_id: '', hora: '', lugar: '', equipacion: 'Azul', texto: '',
     jugadores: {} as Record<string, { estado: string; motivo: string; nota: string }>
   })
   const [saving, setSaving] = useState(false)
@@ -53,6 +53,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
       hora: form.hora,
       lugar: form.lugar,
       equipacion: form.equipacion,
+      texto: form.texto || null,
       creado_por: session?.id,
     }).select().single()
     if (conv) {
@@ -94,6 +95,14 @@ export default function Convocatorias({ team, players, matches }: Props) {
     if (conv.lugar) { doc.text('Lugar: ' + conv.lugar, 14, y); y += 7 }
     if (conv.equipacion) { doc.text('Equipación: ' + conv.equipacion, 14, y); y += 7 }
     y += 4
+    if (conv.texto) {
+      doc.setFont('helvetica','normal')
+      doc.setFontSize(11)
+      doc.setTextColor(60,60,60)
+      const lines = doc.splitTextToSize(conv.texto, 182)
+      lines.forEach((line: string) => { doc.text(line, 14, y); y += 6 })
+      y += 4
+    }
     doc.setFont('helvetica','bold')
     doc.text('JUGADORES CONVOCADOS', 14, y); y += 7
     doc.setFont('helvetica','normal')
@@ -216,6 +225,14 @@ export default function Convocatorias({ team, players, matches }: Props) {
             <label className='label'>Lugar</label>
             <input className='input' style={{ marginBottom: 16 }} placeholder='Campo, ciudad...' value={form.lugar}
               onChange={e => setForm(f => ({ ...f, lugar: e.target.value }))} />
+
+            <textarea
+              placeholder="Texto para el PDF (opcional)"
+              value={form.texto}
+              onChange={e => setForm(f => ({ ...f, texto: e.target.value }))}
+              rows={3}
+              style={{ width: '100%', marginBottom: 12, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }}
+            />
 
             <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>Jugadores</div>
             {players.map(p => {
