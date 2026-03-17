@@ -93,7 +93,7 @@ export async function GET(req: Request) {
             const res = m.resultado_propio !== null ? `${m.resultado_propio}-${m.resultado_rival}` : 'Sin resultado'
             const s = m.stats
             return `<div class="partido-row">
-              <div class="partido-titulo">J${m.jornada} — ${rival} <span style="color:#C8102E;font-weight:800">${res}</span> ${m.fecha ? '<span style="color:#666;font-size:11px">(${m.fecha})</span>' : ''}</div>
+              <div class="partido-titulo">J${m.jornada} — ${rival} <span style="color:#C8102E;font-weight:800">${res}</span> ${m.fecha ? '<span style="color:#666;font-size:11px">(' + m.fecha + ')</span>' : ''}</div>
               ${s ? `<div class="partido-stats">
                 <span>GF: <b>${s.goles_marcados ?? 0}</b></span>
                 <span>GC: <b>${s.goles_encajados ?? 0}</b></span>
