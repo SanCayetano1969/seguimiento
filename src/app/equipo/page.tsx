@@ -595,7 +595,7 @@ function EquipoContent() {
       { key: 'ficha', label: 'Ficha' },
       ...(canEdit ? [{ key: 'eval', label: 'Evaluar' }] : []),
       { key: 'evaluaciones', label: 'Evaluaciones' },
-      { key: 'partidos', label: 'Partidos' },
+      { key: 'partidos', label: 'Estadísticas' },
       { key: 'informes', label: 'Informes' },
       ...(canMeetings ? [{ key: 'reuniones', label: 'Reuniones' }] : []),
       ...(canPsych ? [{ key: 'psico', label: 'Psicologo' }] : []),
@@ -783,6 +783,38 @@ function EquipoContent() {
               </div>
             )}
 
+            {/* TOTALES TEMPORADA */}
+            {matchStats.length > 0 && (() => {
+              const tot = matchStats.reduce((acc: any, s: any) => ({
+                minutos: acc.minutos + (s.minutos || 0),
+                goles: acc.goles + (s.goles || 0),
+                asistencias: acc.asistencias + (s.asistencias || 0),
+                amarillas: acc.amarillas + (s.amarillas || 0),
+                rojas: acc.rojas + (s.rojas || 0),
+                partidos: acc.partidos + 1,
+              }), { minutos: 0, goles: 0, asistencias: 0, amarillas: 0, rojas: 0, partidos: 0 })
+              return (
+                <div style={{ margin: '16px 0', padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Estadísticas temporada</div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Partidos', val: tot.partidos, icon: '⚽' },
+                      { label: 'Minutos', val: tot.minutos, icon: '⏱' },
+                      { label: 'Goles', val: tot.goles, icon: '⚽' },
+                      { label: 'Asist.', val: tot.asistencias, icon: '🌟' },
+                      { label: 'Amarillas', val: tot.amarillas, icon: '🟨' },
+                      { label: 'Rojas', val: tot.rojas, icon: '🟥' },
+                    ].map(item => (
+                      <div key={item.label} style={{ textAlign: 'center', minWidth: 52 }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>{item.val}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             {canMeetings && (
               <div className="card" style={{ marginBottom: 12 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--gold)' }}>Historial reuniones</div>
@@ -907,6 +939,66 @@ function EquipoContent() {
 
         {tab === 'partidos' && (
           <div style={{ padding: '0 4px' }}>
+
+            {/* TOTALES ACUMULADOS */}
+            {matchStats.length > 0 && (() => {
+              const tot = matchStats.reduce((acc: any, s: any) => ({
+                partidos: acc.partidos + 1,
+                minutos: acc.minutos + (s.minutos || 0),
+                goles: acc.goles + (s.goles || 0),
+                asistencias: acc.asistencias + (s.asistencias || 0),
+                amarillas: acc.amarillas + (s.amarillas || 0),
+                rojas: acc.rojas + (s.rojas || 0),
+                tiros: acc.tiros + (s.tiros || 0),
+                tiros_puerta: acc.tiros_puerta + (s.tiros_puerta || 0),
+                recuperaciones: acc.recuperaciones + (s.recuperaciones || 0),
+                intercepciones: acc.intercepciones + (s.intercepciones || 0),
+                entradas: acc.entradas + (s.entradas || 0),
+                pases_completos: acc.pases_completos + (s.pases_completos || 0),
+                pases_fallados: acc.pases_fallados + (s.pases_fallados || 0),
+                faltas_cometidas: acc.faltas_cometidas + (s.faltas_cometidas || 0),
+                faltas_recibidas: acc.faltas_recibidas + (s.faltas_recibidas || 0),
+              }), { partidos:0,minutos:0,goles:0,asistencias:0,amarillas:0,rojas:0,tiros:0,tiros_puerta:0,recuperaciones:0,intercepciones:0,entradas:0,pases_completos:0,pases_fallados:0,faltas_cometidas:0,faltas_recibidas:0 })
+              return (
+                <div style={{ marginBottom: 20, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Totales temporada</div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {[
+                      { label: 'PJ', val: tot.partidos },
+                      { label: 'MIN', val: tot.minutos },
+                      { label: 'GOL', val: tot.goles },
+                      { label: 'ASI', val: tot.asistencias },
+                      { label: '🟨', val: tot.amarillas },
+                      { label: '🟥', val: tot.rojas },
+                    ].map(item => (
+                      <div key={item.label} style={{ textAlign: 'center', minWidth: 44, padding: '6px 8px', background: 'var(--surface)', borderRadius: 8 }}>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{item.val}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Tiros', val: tot.tiros },
+                      { label: 'A puerta', val: tot.tiros_puerta },
+                      { label: 'Recup.', val: tot.recuperaciones },
+                      { label: 'Intcep.', val: tot.intercepciones },
+                      { label: 'Entradas', val: tot.entradas },
+                      { label: 'Pases OK', val: tot.pases_completos },
+                      { label: 'Pases fail', val: tot.pases_fallados },
+                      { label: 'F.Com.', val: tot.faltas_cometidas },
+                      { label: 'F.Rec.', val: tot.faltas_recibidas },
+                    ].filter(i => i.val > 0).map(item => (
+                      <div key={item.label} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--surface)', borderRadius: 6, padding: '3px 8px' }}>
+                        <b style={{ color: 'var(--text)' }}>{item.val}</b> {item.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* FORMULARIO NUEVO PARTIDO */}
             {matches.length === 0 ? (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40, fontSize: 14 }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>⚽</div>
@@ -914,6 +1006,7 @@ function EquipoContent() {
               </div>
             ) : (
               <>
+                <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 13, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1 }}>Registrar partido</div>
                 <select className="input" style={{ marginBottom: 16 }}
                   value={selectedMatch}
                   onChange={e => {
@@ -939,122 +1032,105 @@ function EquipoContent() {
                         cuartos: existing.cuartos_jugados || [],
                       })
                     } else {
-                      setMatchForm({})
+                      setMatchForm({ titular: true, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, cuartos: [] })
                     }
-                  }}>
-                  <option value="">— Selecciona partido —</option>
+                  }}
+                >
+                  <option value="">-- Seleccionar partido --</option>
                   {matches.map((m: any) => (
-                    <option key={m.id} value={m.id}>
-                      J{m.jornada} · {m.fecha ? format(parseISO(m.fecha), 'd MMM', { locale: es }) : '-'} · {m.local ? 'vs' : '@'} {m.rival} {m.resultado_propio != null ? '(' + m.resultado_propio + '-' + m.resultado_rival + ')' : ''}
-                    </option>
+                    <option key={m.id} value={m.id}>J{m.jornada} - {m.local ? 'San Cayetano vs ' + m.rival : m.rival + ' vs San Cayetano'} {m.fecha ? '(' + m.fecha + ')' : ''}</option>
                   ))}
                 </select>
 
-                {selectedMatch && (() => {
-                  const isF8 = team?.modalidad?.includes('F8') || team?.modalidad?.includes('f8')
-                  const mf = matchForm
-                  const setF = (k: string, v: any) => setMatchForm((p: any) => ({ ...p, [k]: v }))
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      {isF8 ? (
-                        <div>
-                          <div className="label">Cuartos jugados</div>
-                          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                            {[1,2,3,4].map(q => (
-                              <label key={q} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: (mf.cuartos||[]).includes(q) ? 'var(--gold)' : 'var(--surface2)', borderRadius: 8, cursor: 'pointer', color: (mf.cuartos||[]).includes(q) ? '#0a1428' : 'var(--text)', fontWeight: 700 }}>
-                                <input type="checkbox" style={{ display: 'none' }}
-                                  checked={(mf.cuartos||[]).includes(q)}
-                                  onChange={() => setF('cuartos', (mf.cuartos||[]).includes(q) ? (mf.cuartos||[]).filter((x:number)=>x!==q) : [...(mf.cuartos||[]), q])} />
-                                {q}º
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                          <div>
-                            <div className="label">Titular</div>
-                            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                              {['Titular','Suplente'].map(v => (
-                                <button key={v} onClick={() => setF('titular', v==='Titular')}
-                                  style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13,
-                                    background: (v==='Titular' ? mf.titular : !mf.titular && mf.titular!==undefined) ? 'var(--gold)' : 'var(--surface2)',
-                                    color: (v==='Titular' ? mf.titular : !mf.titular && mf.titular!==undefined) ? '#0a1428' : 'var(--text)' }}>
-                                  {v}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="label">Minutos</div>
-                            <input className="input" type="number" min="0" max="120" value={mf.minutos||''} onChange={e=>setF('minutos',e.target.value)} />
-                          </div>
-                        </div>
-                      )}
+                {selectedMatch && (
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
+                    {/* TITULAR */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 13 }}>
+                      <input type="checkbox" checked={matchForm.titular} onChange={e => setMatchForm((f: any) => ({ ...f, titular: e.target.checked }))} />
+                      Titular
+                    </label>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                    {/* OBLIGATORIOS */}
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Obligatorios</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                      {[
+                        { key: 'minutos', label: 'Minutos' },
+                        { key: 'goles', label: 'Goles' },
+                        { key: 'asistencias', label: 'Asistencias' },
+                        { key: 'amarillas', label: 'Amarillas' },
+                        { key: 'rojas', label: 'Rojas' },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setMatchForm((f: any) => ({ ...f, [key]: Math.max(0, (f[key]||0) - 1) }))}>-</button>
+                            <span style={{ minWidth: 28, textAlign: 'center', fontWeight: 700 }}>{matchForm[key] || 0}</span>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setMatchForm((f: any) => ({ ...f, [key]: (f[key]||0) + 1 }))}>+</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* OPTATIVOS */}
+                    <details style={{ marginBottom: 16 }}>
+                      <summary style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, cursor: 'pointer', marginBottom: 10 }}>Más estadísticas (opcionales)</summary>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
                         {[
-                          {k:'goles',label:'Goles',icon:'⚽'},
-                          {k:'asistencias',label:'Asist.',icon:'🎯'},
-                          {k:'amarillas',label:'Amarilla',icon:'🟨'},
-                          {k:'rojas',label:'Roja',icon:'🟥'},
-                          {k:'tiros',label:'Tiros',icon:'🔫'},
-                          {k:'tiros_puerta',label:'A puerta',icon:'🎳'},
-                          {k:'recuperaciones',label:'Recup.',icon:'💪'},
-                          {k:'intercepciones',label:'Interc.',icon:'✋'},
-                          {k:'entradas',label:'Entradas',icon:'🛡'},
-                          {k:'pases_completos',label:'Pases OK',icon:'✅'},
-                          {k:'pases_fallados',label:'Pases X',icon:'❌'},
-                          {k:'faltas_cometidas',label:'F.Comet.',icon:'⚠️'},
-                          {k:'faltas_recibidas',label:'F.Recib.',icon:'🤕'},
-                        ].map(({k,label,icon}) => (
-                          <div key={k}>
-                            <div className="label" style={{ fontSize: 11 }}>{icon} {label}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <button onClick={()=>setF(k,Math.max(0,(parseInt(mf[k])||0)-1))}
-                                style={{ width:28,height:28,borderRadius:6,border:'none',background:'var(--surface2)',color:'var(--text)',fontSize:16,cursor:'pointer',fontWeight:700 }}>−</button>
-                              <div style={{ flex:1,textAlign:'center',fontWeight:800,fontSize:18,color:'var(--gold)' }}>{mf[k]||0}</div>
-                              <button onClick={()=>setF(k,(parseInt(mf[k])||0)+1)}
-                                style={{ width:28,height:28,borderRadius:6,border:'none',background:'var(--surface2)',color:'var(--text)',fontSize:16,cursor:'pointer',fontWeight:700 }}>+</button>
+                          { key: 'tiros', label: 'Tiros' },
+                          { key: 'tiros_puerta', label: 'A puerta' },
+                          { key: 'recuperaciones', label: 'Recuperaciones' },
+                          { key: 'intercepciones', label: 'Intercepciones' },
+                          { key: 'entradas', label: 'Entradas' },
+                          { key: 'pases_completos', label: 'Pases completados' },
+                          { key: 'pases_fallados', label: 'Pases fallados' },
+                          { key: 'faltas_cometidas', label: 'Faltas cometidas' },
+                          { key: 'faltas_recibidas', label: 'Faltas recibidas' },
+                        ].map(({ key, label }) => (
+                          <div key={key}>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setMatchForm((f: any) => ({ ...f, [key]: Math.max(0, (f[key]||0) - 1) }))}>-</button>
+                              <span style={{ minWidth: 28, textAlign: 'center', fontWeight: 700 }}>{matchForm[key] || 0}</span>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setMatchForm((f: any) => ({ ...f, [key]: (f[key]||0) + 1 }))}>+</button>
                             </div>
                           </div>
                         ))}
                       </div>
+                    </details>
 
-                      <button className="btn btn-gold btn-full" style={{ marginTop: 8 }}
-                        onClick={saveMatchStat} disabled={savingMatch}>
-                        {savingMatch ? 'Guardando...' : matchStats.find((s:any)=>s.match_id===selectedMatch) ? '✓ Actualizar stats' : '+ Guardar stats'}
-                      </button>
-                    </div>
-                  )
-                })()}
+                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={saveMatchStats} disabled={savingStats}>
+                      {savingStats ? 'Guardando...' : (matchStats.find((s: any) => s.match_id === selectedMatch) ? 'Actualizar partido' : 'Guardar partido')}
+                    </button>
+                  </div>
+                )}
 
-                {/* Resumen stats del jugador */}
+                {/* HISTORICO */}
                 {matchStats.length > 0 && (
-                  <div style={{ marginTop: 24, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--gold)', marginBottom: 12 }}>Totales temporada</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                      {[
-                        {k:'goles',label:'Goles',icon:'⚽'},
-                        {k:'asistencias',label:'Asist.',icon:'🎯'},
-                        {k:'minutos',label:'Mins',icon:'⏱'},
-                        {k:'amarillas',label:'Amarillas',icon:'🟨'},
-                        {k:'rojas',label:'Rojas',icon:'🟥'},
-                        {k:'tiros',label:'Tiros',icon:'🔫'},
-                        {k:'tiros_puerta',label:'A puerta',icon:'🎳'},
-                        {k:'recuperaciones',label:'Recup.',icon:'💪'},
-                        {k:'pases_completos',label:'Pases OK',icon:'✅'},
-                      ].map(({k,label,icon}) => {
-                        const total = matchStats.reduce((s:number,ms:any)=>s+(ms[k]||0),0)
-                        return (
-                          <div key={k} style={{ background:'var(--surface2)',borderRadius:10,padding:'10px 8px',textAlign:'center' }}>
-                            <div style={{ fontSize:20 }}>{icon}</div>
-                            <div style={{ fontWeight:800,fontSize:20,color:'var(--gold)' }}>{total}</div>
-                            <div style={{ fontSize:10,color:'var(--text-muted)' }}>{label}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Histórico partidos</div>
+                    {[...matchStats].sort((a: any, b: any) => {
+                      const ma = matches.find((m: any) => m.id === a.match_id)
+                      const mb = matches.find((m: any) => m.id === b.match_id)
+                      return (ma?.jornada || 0) - (mb?.jornada || 0)
+                    }).map((s: any) => {
+                      const m = matches.find((mm: any) => mm.id === s.match_id)
+                      if (!m) return null
+                      const rival = m.local ? 'vs ' + m.rival : m.rival + ' vs SC'
+                      return (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 6, fontSize: 13, flexWrap: 'wrap' }}
+                          onClick={() => setSelectedMatch(s.match_id)}
+                        >
+                          <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 28 }}>J{m.jornada}</span>
+                          <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 80 }}>{rival}</span>
+                          <span style={{ color: 'var(--text)' }}><b>{s.minutos}'</b></span>
+                          {s.goles > 0 && <span style={{ color: '#22c55e' }}>⚽ {s.goles}</span>}
+                          {s.asistencias > 0 && <span style={{ color: '#3b82f6' }}>🌟 {s.asistencias}</span>}
+                          {s.amarillas > 0 && <span>🟨</span>}
+                          {s.rojas > 0 && <span>🟥</span>}
+                          {!s.titular && <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'var(--surface)', borderRadius: 4, padding: '2px 6px' }}>suplente</span>}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </>
@@ -1062,7 +1138,7 @@ function EquipoContent() {
           </div>
         )}
 
-        {tab === 'informes' && (
+                {tab === 'informes' && (
           <div style={{ padding: '0 4px' }}>
             {playerReports.length === 0 ? (
               <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40, fontSize: 14 }}>
