@@ -1098,8 +1098,8 @@ function EquipoContent() {
                       </div>
                     </details>
 
-                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={saveMatchStats} disabled={savingStats}>
-                      {savingStats ? 'Guardando...' : (matchStats.find((s: any) => s.match_id === selectedMatch) ? 'Actualizar partido' : 'Guardar partido')}
+                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={saveMatchStat} disabled={savingMatch}>
+                      {savingMatch ? 'Guardando...' : (matchStats.find((s: any) => s.match_id === selectedMatch) ? 'Actualizar partido' : 'Guardar partido')}
                     </button>
                   </div>
                 )}
