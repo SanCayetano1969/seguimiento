@@ -18,6 +18,12 @@ export default function TesoreriaPage() {
   const [plans, setPlans] = useState<Record<string,any>>({})
   const [payments, setPayments] = useState<Record<string,any[]>>({})
   const [loading, setLoading] = useState(true)
+  const [sponsors, setSponsors] = useState<any[]>([])
+  const [sponsorPayments, setSponsorPayments] = useState<Record<string,any[]>>({})
+  const [selectedSponsor, setSelectedSponsor] = useState<any>(null)
+  const [showNewSponsor, setShowNewSponsor] = useState(false)
+  const [newSponsor, setNewSponsor] = useState({ nombre: '', cantidad_comprometida: '', notas: '' })
+  const [savingNewSponsor, setSavingNewSponsor] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null)
   const [selectedTeam, setSelectedTeam] = useState<any>(null)
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set())
@@ -36,12 +42,14 @@ export default function TesoreriaPage() {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: teamsData }, { data: feesData }, { data: playersData }, { data: plansData }, { data: paymentsData }] = await Promise.all([
+    const [{ data: teamsData }, { data: feesData }, { data: playersData }, { data: plansData }, { data: paymentsData }, { data: sponsorsData }, { data: spPaymentsData }] = await Promise.all([
       supabase.from('teams').select('*').order('name'),
       supabase.from('team_fees').select('*').eq('temporada', TEMPORADA),
       supabase.from('players').select('*').eq('active', true).order('dorsal'),
       supabase.from('player_fee_plans').select('*').eq('temporada', TEMPORADA),
       supabase.from('player_fee_payments').select('*').eq('temporada', TEMPORADA),
+      supabase.from('sponsors').select('*').eq('temporada', TEMPORADA).order('nombre'),
+      supabase.from('sponsor_payments').select('*').eq('temporada', TEMPORADA),
     ])
     setTeams(teamsData || [])
     const feesMap: Record<string,number> = {}
@@ -62,6 +70,13 @@ export default function TesoreriaPage() {
       paymentsMap[p.player_id].push(p)
     })
     setPayments(paymentsMap)
+    setSponsors(sponsorsData || [])
+    const spMap: Record<string,any[]> = {}
+    ;(spPaymentsData || []).forEach((p: any) => {
+      if (!spMap[p.sponsor_id]) spMap[p.sponsor_id] = []
+      spMap[p.sponsor_id].push(p)
+    })
+    setSponsorPayments(spMap)
     setLoading(false)
   }
 
@@ -95,6 +110,32 @@ export default function TesoreriaPage() {
       else next.add(teamId)
       return next
     })
+  }
+
+  async function addSponsor() {
+    if (!newSponsor.nombre || !newSponsor.cantidad_comprometida) return
+    setSavingNewSponsor(true)
+    await supabase.from('sponsors').insert({
+      nombre: newSponsor.nombre,
+      cantidad_comprometida: parseFloat(newSponsor.cantidad_comprometida),
+      notas: newSponsor.notas || null,
+      temporada: TEMPORADA,
+    })
+    setNewSponsor({ nombre: '', cantidad_comprometida: '', notas: '' })
+    setShowNewSponsor(false)
+    setSavingNewSponsor(false)
+    loadData()
+  }
+
+  function getSponsorStatus(sponsor: any) {
+    const paid = (sponsorPayments[sponsor.id] || []).reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
+    if (paid >= sponsor.cantidad_comprometida) return 'pagado'
+    if (paid > 0) return 'parcial'
+    return 'pendiente'
+  }
+
+  function getSponsorPaid(sponsorId: string) {
+    return (sponsorPayments[sponsorId] || []).reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
   }
 
   if (!session) return null
@@ -229,11 +270,84 @@ export default function TesoreriaPage() {
         )}
 
         {/* PATROCINADORES */}
-        {!loading && tab === 'patrocinadores' && (
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Módulo de patrocinadores próximamente</div>
+        {!loading && tab === 'patrocinadores' && !selectedSponsor && (
+          <div>
+            {/* Botón añadir */}
+            <button onClick={() => setShowNewSponsor(true)}
+              style={{ width: '100%', padding: '12px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: 14 }}>
+              + Añadir patrocinador
+            </button>
+
+            {/* Formulario nuevo patrocinador */}
+            {showNewSponsor && (
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 16px', marginBottom: 14, border: '1px solid var(--accent)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', marginBottom: 12 }}>Nuevo patrocinador</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input value={newSponsor.nombre} onChange={e => setNewSponsor(s => ({ ...s, nombre: e.target.value }))}
+                    placeholder="Nombre del patrocinador *"
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13 }} />
+                  <input type="number" value={newSponsor.cantidad_comprometida} onChange={e => setNewSponsor(s => ({ ...s, cantidad_comprometida: e.target.value }))}
+                    placeholder="Cantidad comprometida (€) *"
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13 }} />
+                  <input value={newSponsor.notas} onChange={e => setNewSponsor(s => ({ ...s, notas: e.target.value }))}
+                    placeholder="Notas (opcional)"
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={addSponsor} disabled={savingNewSponsor}
+                      style={{ flex: 1, padding: '9px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      {savingNewSponsor ? 'Guardando...' : 'Guardar'}
+                    </button>
+                    <button onClick={() => { setShowNewSponsor(false); setNewSponsor({ nombre: '', cantidad_comprometida: '', notas: '' }) }}
+                      style={{ padding: '9px 16px', background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lista patrocinadores */}
+            {sponsors.length === 0 && !showNewSponsor && (
+              <div style={{ textAlign: 'center', padding: 40 }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No hay patrocinadores añadidos todavía</div>
+              </div>
+            )}
+            {sponsors.map(sp => {
+              const status = getSponsorStatus(sp)
+              const paid = getSponsorPaid(sp.id)
+              return (
+                <div key={sp.id} style={{ background: 'var(--surface)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--border)', cursor: 'pointer' }}
+                  onClick={() => setSelectedSponsor(sp)}>
+                  <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 22 }}>
+                      {status === 'pagado' ? '✅' : status === 'parcial' ? '⚠️' : '❌'}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{sp.nombre}</div>
+                      {sp.notas && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{sp.notas}</div>}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: status === 'pagado' ? '#22c55e' : status === 'parcial' ? '#f59e0b' : '#ef4444' }}>
+                        {paid}€
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>/ {sp.cantidad_comprometida}€</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
+        )}
+
+        {/* PANEL PATROCINADOR */}
+        {!loading && tab === 'patrocinadores' && selectedSponsor && (
+          <SponsorPanel
+            sponsor={selectedSponsor}
+            temporada={TEMPORADA}
+            payments={sponsorPayments[selectedSponsor.id] || []}
+            onBack={() => { setSelectedSponsor(null); loadData() }}
+          />
         )}
 
         {/* TORNEOS */}
@@ -544,6 +658,249 @@ function PlayerPanel({ player, team, temporada, session, teamFee, plan, payments
       </button>
 
       {/* Modal PDF */}
+      {viewingPdf && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
+            <button onClick={() => setViewingPdf(null)}
+              style={{ background: 'white', border: 'none', borderRadius: 8, padding: '6px 14px', fontWeight: 700, cursor: 'pointer' }}>
+              Cerrar
+            </button>
+          </div>
+          <iframe src={viewingPdf} style={{ flex: 1, border: 'none' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===================== PANEL PATROCINADOR =====================
+function SponsorPanel({ sponsor, temporada, payments, onBack }: any) {
+  const [numParcelas, setNumParcelas] = useState<number>(payments.length || 1)
+  const [formData, setFormData] = useState<any[]>([])
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [viewingPdf, setViewingPdf] = useState<string|null>(null)
+  const fileRefs = useRef<Record<number, HTMLInputElement|null>>({})
+
+  const totalPagado = payments.reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
+
+  useEffect(() => {
+    const arr = []
+    for (let i = 1; i <= numParcelas; i++) {
+      const existing = payments.find((p: any) => p.numero === i)
+      arr.push({
+        numero: i,
+        fecha: existing?.fecha || '',
+        cantidad: existing?.cantidad?.toString() || '',
+        metodo: existing?.metodo || 'transferencia',
+        cobrador: existing?.cobrador || 'Borja',
+        justificante_url: existing?.justificante_url || '',
+        id: existing?.id || null,
+      })
+    }
+    setFormData(arr)
+  }, [numParcelas])
+
+  function updateField(idx: number, key: string, val: string) {
+    setFormData(prev => prev.map((p, i) => i === idx ? { ...p, [key]: val } : p))
+  }
+
+  async function uploadJustificante(idx: number, file: File) {
+    const path = `sponsors/${sponsor.id}/parcela_${idx+1}_${Date.now()}.pdf`
+    await supabase.storage.from('justificantes').upload(path, file, { upsert: true })
+    const { data: urlData } = supabase.storage.from('justificantes').getPublicUrl(path)
+    updateField(idx, 'justificante_url', urlData.publicUrl)
+    setMsg('PDF subido')
+    setTimeout(() => setMsg(''), 2000)
+  }
+
+  async function saveAll() {
+    setSaving(true)
+    setMsg('')
+    try {
+      for (const row of formData) {
+        if (!row.fecha && !row.cantidad) continue
+        const payload: any = {
+          sponsor_id: sponsor.id,
+          temporada,
+          numero: row.numero,
+          fecha: row.fecha || null,
+          cantidad: row.cantidad ? parseFloat(row.cantidad) : null,
+          metodo: row.metodo,
+          cobrador: row.metodo === 'metalico' ? row.cobrador : null,
+          justificante_url: row.metodo === 'transferencia' ? row.justificante_url : null,
+        }
+        if (row.id) {
+          await supabase.from('sponsor_payments').update(payload).eq('id', row.id)
+        } else {
+          await supabase.from('sponsor_payments').insert(payload)
+        }
+      }
+      setMsg('✅ Guardado correctamente')
+      setTimeout(() => { setMsg(''); onBack() }, 1200)
+    } catch(e: any) {
+      setMsg('Error: ' + e.message)
+    }
+    setSaving(false)
+  }
+
+  async function getSignedUrl(url: string) {
+    const path = url.split('/justificantes/')[1]
+    if (!path) { setViewingPdf(url); return }
+    const { data } = await supabase.storage.from('justificantes').createSignedUrl(path, 3600)
+    setViewingPdf(data?.signedUrl || url)
+  }
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 14 }}>
+        ← Volver
+      </button>
+
+      {/* Cabecera patrocinador */}
+      <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 16px', marginBottom: 14, border: '1px solid var(--border)' }}>
+        <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{sponsor.nombre}</div>
+        {sponsor.notas && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{sponsor.notas}</div>}
+        <div style={{ display: 'flex', gap: 16 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{totalPagado}€</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Pagado</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>{sponsor.cantidad_comprometida}€</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Comprometido</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: totalPagado >= sponsor.cantidad_comprometida ? '#22c55e' : totalPagado > 0 ? '#f59e0b' : '#ef4444' }}>
+              {totalPagado >= sponsor.cantidad_comprometida ? '✅' : totalPagado > 0 ? '⚠️' : '❌'}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Estado</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Selector parcelas */}
+      <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 10 }}>Número de pagos</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[1,2,3,4,5,6].map(n => (
+            <button key={n} onClick={() => setNumParcelas(n)}
+              style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                background: numParcelas === n ? 'var(--accent)' : 'var(--surface2)',
+                color: numParcelas === n ? 'white' : 'var(--text-muted)' }}>
+              {n === 6 ? '+' : n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Formulario pagos */}
+      {formData.map((row, idx) => (
+        <div key={idx} style={{ background: 'var(--surface)', borderRadius: 12, padding: '12px 16px', marginBottom: 10, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Pago {row.numero} {row.id && <span style={{ color: '#22c55e' }}>✅ Registrado</span>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>Fecha</div>
+              <input type="date" value={row.fecha} onChange={e => updateField(idx, 'fecha', e.target.value)}
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 12, boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>Cantidad (€)</div>
+              <input type="number" value={row.cantidad} onChange={e => updateField(idx, 'cantidad', e.target.value)}
+                placeholder="0.00"
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 12, boxSizing: 'border-box' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            {['transferencia','metalico'].map(m => (
+              <button key={m} onClick={() => updateField(idx, 'metodo', m)}
+                style={{ flex: 1, padding: '7px 4px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer',
+                  background: row.metodo === m ? (m === 'transferencia' ? '#3b82f6' : '#22c55e') : 'var(--surface2)',
+                  color: row.metodo === m ? 'white' : 'var(--text-muted)' }}>
+                {m === 'transferencia' ? '🏦 Transferencia' : '💵 Metálico'}
+              </button>
+            ))}
+          </div>
+          {row.metodo === 'transferencia' && (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Justificante PDF</div>
+              {row.justificante_url ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => getSignedUrl(row.justificante_url)}
+                    style={{ flex: 1, padding: '6px 10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    📄 Ver justificante
+                  </button>
+                  <button onClick={() => fileRefs.current[idx]?.click()}
+                    style={{ padding: '6px 10px', background: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+                    Cambiar
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => fileRefs.current[idx]?.click()}
+                  style={{ width: '100%', padding: '8px', background: 'var(--surface2)', color: 'var(--text-muted)', border: '2px dashed var(--border)', borderRadius: 8, fontSize: 12, cursor: 'pointer', boxSizing: 'border-box' }}>
+                  + Subir PDF justificante
+                </button>
+              )}
+              <input ref={el => fileRefs.current[idx] = el} type="file" accept=".pdf" style={{ display: 'none' }}
+                onChange={e => { if (e.target.files?.[0]) uploadJustificante(idx, e.target.files[0]) }} />
+            </div>
+          )}
+          {row.metodo === 'metalico' && (
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Cobrado por</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['Borja','Victor','Rosa','Margot'].map(c => (
+                  <button key={c} onClick={() => updateField(idx, 'cobrador', c)}
+                    style={{ flex: 1, padding: '6px 4px', borderRadius: 8, border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer',
+                      background: row.cobrador === c ? '#22c55e' : 'var(--surface2)',
+                      color: row.cobrador === c ? 'white' : 'var(--text-muted)' }}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Histórico */}
+      {payments.length > 0 && (
+        <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Histórico de pagos
+          </div>
+          {[...payments].sort((a, b) => a.numero - b.numero).map((p: any) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+              <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 24 }}>#{p.numero}</span>
+              <span style={{ color: 'var(--text-muted)', minWidth: 80 }}>{p.fecha || '—'}</span>
+              <span style={{ fontWeight: 700, color: '#22c55e', minWidth: 60 }}>{p.cantidad}€</span>
+              <span style={{ color: 'var(--text-muted)', flex: 1 }}>
+                {p.metodo === 'transferencia' ? '🏦 Transf.' : '💵 ' + (p.cobrador || '')}
+              </span>
+              {p.justificante_url && (
+                <button onClick={() => getSignedUrl(p.justificante_url)}
+                  style={{ padding: '3px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                  PDF
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {msg && (
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: msg.includes('Error') ? '#fee2e2' : '#dcfce7', color: msg.includes('Error') ? '#dc2626' : '#16a34a', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+          {msg}
+        </div>
+      )}
+
+      <button onClick={saveAll} disabled={saving}
+        style={{ width: '100%', padding: '14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+        {saving ? 'Guardando...' : 'Guardar pagos'}
+      </button>
+
       {viewingPdf && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', padding: 12 }}>
