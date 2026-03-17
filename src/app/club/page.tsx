@@ -45,6 +45,7 @@ export default function ClubPage() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [reportMsg, setReportMsg] = useState('')
+  const [reportVersion, setReportVersion] = useState(0)
   const [lastEvalDays, setLastEvalDays] = useState<Record<string, number>>({})
   const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
 
@@ -154,10 +155,8 @@ export default function ClubPage() {
       const data = await res.json()
       if (data.ok) {
         setReportMsg('Informe de ' + ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes-1] + ' generado correctamente')
-        // Recargar informes
-        supabase.from('monthly_reports').select('id,mes,anyo,team_id,created_at,contenido')
-          .order('anyo', { ascending: false }).order('mes', { ascending: false })
-          .then(({ data: d }) => setReports(d || []))
+        // Forzar recarga del useEffect
+        setReportVersion(v => v + 1)
       } else {
         setReportMsg('Error generando el informe')
       }
@@ -174,7 +173,7 @@ export default function ClubPage() {
       .order('anyo', { ascending: false })
       .order('mes', { ascending: false })
       .then(({ data }) => { setReports(data || []); setLoadingReports(false) })
-  }, [tab])
+  }, [tab, reportVersion])
 
   return (
     <div className="page-content">
