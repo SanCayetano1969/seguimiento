@@ -31,6 +31,15 @@ export default function TesoreriaPage() {
   const [feeInput, setFeeInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [tournaments, setTournaments] = useState<any[]>([])
+  const [selectedTournament, setSelectedTournament] = useState<any>(null)
+  const [tournamentTeams, setTournamentTeams] = useState<Record<string,string[]>>({})
+  const [tournamentPlayers, setTournamentPlayers] = useState<Record<string,any[]>>({})
+  const [tournamentPayments, setTournamentPayments] = useState<Record<string,any[]>>({})
+  const [showNewTournament, setShowNewTournament] = useState(false)
+  const [newTournament, setNewTournament] = useState({ nombre:'', coste_inscripcion:'', coste_traslados:'', coste_estancia:'', coste_viaje_acomp:'', coste_estancia_acomp:'', costes_extras:'', notas:'' })
+  const [newTournamentTeams, setNewTournamentTeams] = useState<string[]>([])
+  const [savingTournament, setSavingTournament] = useState(false)
 
   useEffect(() => {
     const s = getSession()
@@ -42,7 +51,7 @@ export default function TesoreriaPage() {
 
   async function loadData() {
     setLoading(true)
-    const [{ data: teamsData }, { data: feesData }, { data: playersData }, { data: plansData }, { data: paymentsData }, { data: sponsorsData }, { data: spPaymentsData }] = await Promise.all([
+    const [{ data: teamsData }, { data: feesData }, { data: playersData }, { data: plansData }, { data: paymentsData }, { data: sponsorsData }, { data: spPaymentsData }, { data: tournamentsData }, { data: tTeamsData }, { data: tPlayersData }, { data: tPaymentsData }] = await Promise.all([
       supabase.from('teams').select('*').order('name'),
       supabase.from('team_fees').select('*').eq('temporada', TEMPORADA),
       supabase.from('players').select('*').eq('active', true).order('dorsal'),
@@ -50,6 +59,10 @@ export default function TesoreriaPage() {
       supabase.from('player_fee_payments').select('*').eq('temporada', TEMPORADA),
       supabase.from('sponsors').select('*').eq('temporada', TEMPORADA).order('nombre'),
       supabase.from('sponsor_payments').select('*').eq('temporada', TEMPORADA),
+      supabase.from('tournaments').select('*').eq('temporada', TEMPORADA).order('created_at', { ascending: false }),
+      supabase.from('tournament_teams').select('*'),
+      supabase.from('tournament_players').select('*'),
+      supabase.from('tournament_payments').select('*'),
     ])
     setTeams(teamsData || [])
     const feesMap: Record<string,number> = {}
@@ -71,6 +84,26 @@ export default function TesoreriaPage() {
     })
     setPayments(paymentsMap)
     setSponsors(sponsorsData || [])
+    setTournaments(tournamentsData || [])
+    const ttMap: Record<string,string[]> = {}
+    ;(tTeamsData || []).forEach((tt: any) => {
+      if (!ttMap[tt.tournament_id]) ttMap[tt.tournament_id] = []
+      ttMap[tt.tournament_id].push(tt.team_id)
+    })
+    setTournamentTeams(ttMap)
+    const tpMap: Record<string,any[]> = {}
+    ;(tPlayersData || []).forEach((tp: any) => {
+      if (!tpMap[tp.tournament_id]) tpMap[tp.tournament_id] = []
+      tpMap[tp.tournament_id].push(tp)
+    })
+    setTournamentPlayers(tpMap)
+    const tpaMap: Record<string,any[]> = {}
+    ;(tPaymentsData || []).forEach((p: any) => {
+      const key = p.tournament_id + '_' + p.player_id
+      if (!tpaMap[key]) tpaMap[key] = []
+      tpaMap[key].push(p)
+    })
+    setTournamentPayments(tpaMap)
     const spMap: Record<string,any[]> = {}
     ;(spPaymentsData || []).forEach((p: any) => {
       if (!spMap[p.sponsor_id]) spMap[p.sponsor_id] = []
@@ -110,6 +143,39 @@ export default function TesoreriaPage() {
       else next.add(teamId)
       return next
     })
+  }
+
+  async function createTournament() {
+    if (!newTournament.nombre) return
+    if (newTournamentTeams.length === 0) return
+    setSavingTournament(true)
+    const { data: t } = await supabase.from('tournaments').insert({
+      nombre: newTournament.nombre,
+      temporada: TEMPORADA,
+      coste_inscripcion: parseFloat(newTournament.coste_inscripcion) || 0,
+      coste_traslados: parseFloat(newTournament.coste_traslados) || 0,
+      coste_estancia: parseFloat(newTournament.coste_estancia) || 0,
+      coste_viaje_acomp: parseFloat(newTournament.coste_viaje_acomp) || 0,
+      coste_estancia_acomp: parseFloat(newTournament.coste_estancia_acomp) || 0,
+      costes_extras: parseFloat(newTournament.costes_extras) || 0,
+      notas: newTournament.notas || null,
+    }).select().single()
+    if (t) {
+      await supabase.from('tournament_teams').insert(
+        newTournamentTeams.map(tid => ({ tournament_id: t.id, team_id: tid }))
+      )
+    }
+    setNewTournament({ nombre:'', coste_inscripcion:'', coste_traslados:'', coste_estancia:'', coste_viaje_acomp:'', coste_estancia_acomp:'', costes_extras:'', notas:'' })
+    setNewTournamentTeams([])
+    setShowNewTournament(false)
+    setSavingTournament(false)
+    loadData()
+  }
+
+  function toggleTournamentTeam(teamId: string) {
+    setNewTournamentTeams(prev =>
+      prev.includes(teamId) ? prev.filter(t => t !== teamId) : prev.length < 5 ? [...prev, teamId] : prev
+    )
   }
 
   async function addSponsor() {
@@ -410,12 +476,119 @@ export default function TesoreriaPage() {
           />
         )}
 
-        {/* TORNEOS */}
-        {!loading && tab === 'torneos' && (
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🏆</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>Módulo de torneos próximamente</div>
+        {/* TORNEOS - LISTA */}
+        {!loading && tab === 'torneos' && !selectedTournament && (
+          <div>
+            <button onClick={() => setShowNewTournament(true)}
+              style={{ width:'100%', padding:'12px', background:'var(--accent)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', marginBottom:14 }}>
+              + Crear torneo
+            </button>
+
+            {/* Formulario nuevo torneo */}
+            {showNewTournament && (
+              <div style={{ background:'var(--surface)', borderRadius:12, padding:'14px 16px', marginBottom:14, border:'1px solid var(--accent)' }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)', marginBottom:12 }}>Nuevo torneo</div>
+                <input value={newTournament.nombre} onChange={e => setNewTournament(t => ({...t, nombre: e.target.value}))}
+                  placeholder="Nombre del torneo *"
+                  style={{ width:'100%', marginBottom:8, padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text)', fontSize:13, boxSizing:'border-box' }} />
+
+                <div style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', marginBottom:6 }}>Equipos participantes (máx. 5)</div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
+                  {teams.map(t => (
+                    <button key={t.id} onClick={() => toggleTournamentTeam(t.id)}
+                      style={{ padding:'5px 10px', borderRadius:20, border:'none', fontSize:12, fontWeight:600, cursor:'pointer',
+                        background: newTournamentTeams.includes(t.id) ? 'var(--accent)' : 'var(--surface2)',
+                        color: newTournamentTeams.includes(t.id) ? 'white' : 'var(--text-muted)',
+                        opacity: !newTournamentTeams.includes(t.id) && newTournamentTeams.length >= 5 ? 0.4 : 1 }}>
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ fontSize:12, fontWeight:600, color:'var(--text-muted)', marginBottom:6 }}>Costes por jugador (€)</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+                  {[
+                    { field:'coste_inscripcion', label:'Inscripción' },
+                    { field:'coste_traslados', label:'Traslados' },
+                    { field:'coste_estancia', label:'Estancia' },
+                    { field:'coste_viaje_acomp', label:'Viaje acomp.' },
+                    { field:'coste_estancia_acomp', label:'Estancia acomp.' },
+                    { field:'costes_extras', label:'Extras' },
+                  ].map(({ field, label }) => (
+                    <div key={field}>
+                      <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:2 }}>{label}</div>
+                      <input type="number" value={(newTournament as any)[field]}
+                        onChange={e => setNewTournament(t => ({...t, [field]: e.target.value}))}
+                        placeholder="0"
+                        style={{ width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text)', fontSize:12, boxSizing:'border-box' }} />
+                    </div>
+                  ))}
+                </div>
+
+                <input value={newTournament.notas} onChange={e => setNewTournament(t => ({...t, notas: e.target.value}))}
+                  placeholder="Notas (opcional)"
+                  style={{ width:'100%', marginBottom:10, padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text)', fontSize:13, boxSizing:'border-box' }} />
+
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={createTournament} disabled={savingTournament || !newTournament.nombre || newTournamentTeams.length === 0}
+                    style={{ flex:1, padding:'9px', background:'var(--accent)', color:'white', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer', opacity: (!newTournament.nombre || newTournamentTeams.length === 0) ? 0.5 : 1 }}>
+                    {savingTournament ? 'Creando...' : 'Crear torneo'}
+                  </button>
+                  <button onClick={() => { setShowNewTournament(false); setNewTournamentTeams([]) }}
+                    style={{ padding:'9px 16px', background:'none', border:'1px solid var(--border)', borderRadius:8, color:'var(--text-muted)', fontSize:13, cursor:'pointer' }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {tournaments.length === 0 && !showNewTournament && (
+              <div style={{ textAlign:'center', padding:40 }}>
+                <div style={{ fontSize:40, marginBottom:12 }}>🏆</div>
+                <div style={{ color:'var(--text-muted)', fontSize:14 }}>No hay torneos creados todavía</div>
+              </div>
+            )}
+
+            {tournaments.map(t => {
+              const tteams = (tournamentTeams[t.id] || []).map(tid => teams.find(te => te.id === tid)?.name).filter(Boolean)
+              const tplayers = tournamentPlayers[t.id] || []
+              const totalPagado = tplayers.reduce((sum: number, tp: any) => {
+                const key = t.id + '_' + tp.player_id
+                return sum + (tournamentPayments[key] || []).reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
+              }, 0)
+              const totalCostes = (t.coste_inscripcion + t.coste_traslados + t.coste_estancia + t.coste_viaje_acomp + t.coste_estancia_acomp + t.costes_extras)
+              return (
+                <div key={t.id} style={{ background:'var(--surface)', borderRadius:12, marginBottom:10, border:'1px solid var(--border)', cursor:'pointer' }}
+                  onClick={() => setSelectedTournament(t)}>
+                  <div style={{ padding:'12px 14px' }}>
+                    <div style={{ fontWeight:700, fontSize:15, color:'var(--text)', marginBottom:4 }}>🏆 {t.nombre}</div>
+                    <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:6 }}>
+                      {tteams.join(' • ')}
+                    </div>
+                    <div style={{ display:'flex', gap:12, flexWrap:'wrap', fontSize:11 }}>
+                      <span style={{ color:'var(--text-muted)' }}>{tplayers.length} jugadores</span>
+                      <span style={{ color:'var(--accent)' }}>Coste/jugador: {totalCostes}€</span>
+                      <span style={{ color:'#22c55e' }}>Cobrado: {totalPagado}€</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
+        )}
+
+        {/* TORNEOS - DETALLE */}
+        {!loading && tab === 'torneos' && selectedTournament && (
+          <TournamentDetail
+            tournament={selectedTournament}
+            teams={teams}
+            allPlayers={players}
+            tournamentTeamIds={tournamentTeams[selectedTournament.id] || []}
+            tournamentPlayers={tournamentPlayers[selectedTournament.id] || []}
+            tournamentPayments={tournamentPayments}
+            session={session}
+            onBack={() => { setSelectedTournament(null); loadData() }}
+          />
         )}
       </div>
 
@@ -1005,6 +1178,374 @@ function SponsorPanel({ sponsor, temporada, payments, session, onBack }: any) {
             </button>
           </div>
           <iframe src={viewingPdf} style={{ flex: 1, border: 'none' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ===================== TORNEO DETALLE =====================
+const CONCEPTOS = [
+  {key:'inscripcion',label:'Inscripción',icon:'🏷️',campo:'coste_inscripcion'},
+  {key:'traslados',label:'Traslados',icon:'🚌',campo:'coste_traslados'},
+  {key:'estancia',label:'Estancia',icon:'🏨',campo:'coste_estancia'},
+  {key:'viaje_acomp',label:'Viaje acomp.',icon:'✈️',campo:'coste_viaje_acomp'},
+  {key:'estancia_acomp',label:'Estancia acomp.',icon:'🛏️',campo:'coste_estancia_acomp'},
+  {key:'extras',label:'Extras',icon:'➕',campo:'costes_extras'},
+]
+
+function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, tournamentPlayers, tournamentPayments, session, onBack }: any) {
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null)
+  const [selectedTeamForPlayer, setSelectedTeamForPlayer] = useState<any>(null)
+  const [localPlayers, setLocalPlayers] = useState<any[]>(tournamentPlayers)
+  const [savingPlayer, setSavingPlayer] = useState<string|null>(null)
+
+  const participatingTeams = teams.filter((t: any) => tournamentTeamIds.includes(t.id))
+  const totalCostes = CONCEPTOS.reduce((s: number, c: any) => s + (tournament[c.campo] || 0), 0)
+
+  async function togglePlayer(player: any, teamId: string) {
+    const existing = localPlayers.find((p: any) => p.player_id === player.id)
+    setSavingPlayer(player.id)
+    if (existing) {
+      await supabase.from('tournament_players').delete().eq('id', existing.id)
+      setLocalPlayers(prev => prev.filter((p: any) => p.player_id !== player.id))
+    } else {
+      const { data } = await supabase.from('tournament_players').insert({
+        tournament_id: tournament.id, team_id: teamId, player_id: player.id,
+        num_acomp_viaje: 0, num_acomp_estancia: 0
+      }).select().single()
+      if (data) setLocalPlayers(prev => [...prev, data])
+    }
+    setSavingPlayer(null)
+  }
+
+  async function updateAcomp(playerId: string, field: string, val: number) {
+    await supabase.from('tournament_players').update({ [field]: val }).eq('tournament_id', tournament.id).eq('player_id', playerId)
+    setLocalPlayers(prev => prev.map((p: any) => p.player_id === playerId ? { ...p, [field]: val } : p))
+  }
+
+  if (selectedPlayer) {
+    return (
+      <TournamentPlayerPanel
+        tournament={tournament}
+        player={selectedPlayer}
+        team={selectedTeamForPlayer}
+        playerEntry={localPlayers.find((p: any) => p.player_id === selectedPlayer.id)}
+        payments={tournamentPayments[tournament.id + '_' + selectedPlayer.id] || []}
+        onBack={() => { setSelectedPlayer(null); setSelectedTeamForPlayer(null) }}
+      />
+    )
+  }
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:'var(--accent)', fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:14 }}>
+        ← Volver
+      </button>
+
+      {/* Cabecera torneo */}
+      <div style={{ background:'var(--surface)', borderRadius:12, padding:'14px 16px', marginBottom:14, border:'1px solid var(--border)' }}>
+        <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', marginBottom:6 }}>🏆 {tournament.nombre}</div>
+        <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:10 }}>{participatingTeams.map((t: any) => t.name).join(' • ')}</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
+          {CONCEPTOS.filter((c: any) => tournament[c.campo] > 0).map((c: any) => (
+            <div key={c.key} style={{ textAlign:'center', padding:'6px 4px', background:'var(--surface2)', borderRadius:8 }}>
+              <div style={{ fontSize:14 }}>{c.icon}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)' }}>{tournament[c.campo]}€</div>
+              <div style={{ fontSize:10, color:'var(--text-muted)' }}>{c.label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:10, fontSize:12, color:'var(--text-muted)', textAlign:'right' }}>
+          Total por jugador: <b style={{ color:'var(--accent)', fontSize:14 }}>{totalCostes}€</b>
+        </div>
+      </div>
+
+      {/* Por equipo */}
+      {participatingTeams.map((team: any) => {
+        const teamPlayers = allPlayers[team.id] || []
+        return (
+          <div key={team.id} style={{ background:'var(--surface)', borderRadius:12, marginBottom:12, border:'1px solid var(--border)', overflow:'hidden' }}>
+            <div style={{ padding:'10px 14px', background:'var(--surface2)', fontWeight:700, fontSize:13, color:'var(--text)' }}>
+              {team.name}
+            </div>
+            {teamPlayers.map((player: any) => {
+              const enrolled = localPlayers.find((p: any) => p.player_id === player.id)
+              const paid = (tournamentPayments[tournament.id + '_' + player.id] || []).reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
+              return (
+                <div key={player.id} style={{ borderBottom:'1px solid var(--border)' }}>
+                  <div style={{ padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
+                    {/* Checkbox selección */}
+                    <button onClick={() => togglePlayer(player, team.id)} disabled={savingPlayer === player.id}
+                      style={{ width:28, height:28, borderRadius:6, border:'2px solid', borderColor: enrolled ? 'var(--accent)' : 'var(--border)',
+                        background: enrolled ? 'var(--accent)' : 'transparent', cursor:'pointer', fontSize:14, display:'flex', alignItems:'center', justifyContent:'center',
+                        flexShrink:0, opacity: savingPlayer === player.id ? 0.5 : 1 }}>
+                      {enrolled ? '✓' : ''}
+                    </button>
+                    <div style={{ flex:1, cursor: enrolled ? 'pointer' : 'default' }}
+                      onClick={() => { if(enrolled) { setSelectedPlayer(player); setSelectedTeamForPlayer(team) } }}>
+                      <span style={{ fontWeight:600, fontSize:13, color:'var(--text)' }}>
+                        {player.dorsal ? '#'+player.dorsal+' ' : ''}{player.name}
+                      </span>
+                    </div>
+                    {enrolled && (
+                      <span style={{ fontSize:12, fontWeight:700, color: paid >= totalCostes ? '#22c55e' : paid > 0 ? '#f59e0b' : '#ef4444' }}>
+                        {paid}€
+                      </span>
+                    )}
+                    {enrolled && (
+                      <button onClick={() => { setSelectedPlayer(player); setSelectedTeamForPlayer(team) }}
+                        style={{ fontSize:11, padding:'3px 8px', background:'var(--accent)', color:'white', border:'none', borderRadius:6, cursor:'pointer' }}>
+                        Pagos
+                      </button>
+                    )}
+                  </div>
+                  {/* Acompañantes */}
+                  {enrolled && (
+                    <div style={{ padding:'0 14px 10px 52px', display:'flex', gap:16 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12 }}>
+                        <span style={{ color:'var(--text-muted)' }}>✈️ Acomp. viajan:</span>
+                        <button onClick={() => updateAcomp(player.id, 'num_acomp_viaje', Math.max(0,(enrolled.num_acomp_viaje||0)-1))}
+                          style={{ width:22, height:22, border:'1px solid var(--border)', borderRadius:4, background:'var(--surface2)', cursor:'pointer', fontSize:12, fontWeight:700 }}>-</button>
+                        <span style={{ fontWeight:700, minWidth:16, textAlign:'center' }}>{enrolled.num_acomp_viaje || 0}</span>
+                        <button onClick={() => updateAcomp(player.id, 'num_acomp_viaje', (enrolled.num_acomp_viaje||0)+1)}
+                          style={{ width:22, height:22, border:'1px solid var(--border)', borderRadius:4, background:'var(--surface2)', cursor:'pointer', fontSize:12, fontWeight:700 }}>+</button>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12 }}>
+                        <span style={{ color:'var(--text-muted)' }}>🏨 Estancia:</span>
+                        <button onClick={() => updateAcomp(player.id, 'num_acomp_estancia', Math.max(0,(enrolled.num_acomp_estancia||0)-1))}
+                          style={{ width:22, height:22, border:'1px solid var(--border)', borderRadius:4, background:'var(--surface2)', cursor:'pointer', fontSize:12, fontWeight:700 }}>-</button>
+                        <span style={{ fontWeight:700, minWidth:16, textAlign:'center' }}>{enrolled.num_acomp_estancia || 0}</span>
+                        <button onClick={() => updateAcomp(player.id, 'num_acomp_estancia', (enrolled.num_acomp_estancia||0)+1)}
+                          style={{ width:22, height:22, border:'1px solid var(--border)', borderRadius:4, background:'var(--surface2)', cursor:'pointer', fontSize:12, fontWeight:700 }}>+</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ===================== TORNEOS - PAGOS JUGADOR =====================
+function TournamentPlayerPanel({ tournament, player, team, playerEntry, payments, onBack }: any) {
+  const [activeConcepto, setActiveConcepto] = useState('inscripcion')
+  const [formData, setFormData] = useState<any[]>([])
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [viewingPdf, setViewingPdf] = useState<string|null>(null)
+  const fileRefs = useRef<Record<string, HTMLInputElement|null>>({})
+
+  const conceptoPayments = (concepto: string) => payments.filter((p: any) => p.concepto === concepto)
+  const totalPagadoConcepto = (concepto: string) => conceptoPayments(concepto).reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
+  const totalPagado = payments.reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
+  const totalCostes = CONCEPTOS.reduce((s: number, c: any) => s + (tournament[c.campo] || 0), 0)
+
+  useEffect(() => {
+    const pags = conceptoPayments(activeConcepto)
+    const arr = pags.length > 0 ? pags.map((p: any) => ({
+      numero: p.numero, fecha: p.fecha || '', cantidad: p.cantidad?.toString() || '',
+      metodo: p.metodo || 'transferencia', cobrador: p.cobrador || 'Borja',
+      justificante_url: p.justificante_url || '', id: p.id
+    })) : [{ numero:1, fecha:'', cantidad:'', metodo:'transferencia', cobrador:'Borja', justificante_url:'', id:null }]
+    setFormData(arr)
+  }, [activeConcepto, payments.length])
+
+  function updateField(idx: number, key: string, val: string) {
+    setFormData(prev => prev.map((p, i) => i === idx ? {...p, [key]: val} : p))
+  }
+
+  function addPago() {
+    setFormData(prev => [...prev, { numero: prev.length+1, fecha:'', cantidad:'', metodo:'transferencia', cobrador:'Borja', justificante_url:'', id:null }])
+  }
+
+  async function uploadJustificante(key: string, file: File) {
+    const path = `torneos/${tournament.id}/${player.id}/${key}_${Date.now()}.pdf`
+    await supabase.storage.from('justificantes').upload(path, file, { upsert: true })
+    const { data } = supabase.storage.from('justificantes').getPublicUrl(path)
+    const [idx] = key.split('_')
+    updateField(parseInt(idx), 'justificante_url', data.publicUrl)
+  }
+
+  async function saveConcepto() {
+    setSaving(true); setMsg('')
+    try {
+      for (const row of formData) {
+        if (!row.fecha && !row.cantidad) continue
+        const payload: any = {
+          tournament_id: tournament.id, player_id: player.id, team_id: team.id,
+          concepto: activeConcepto, numero: row.numero,
+          fecha: row.fecha || null, cantidad: row.cantidad ? parseFloat(row.cantidad) : null,
+          metodo: row.metodo,
+          cobrador: row.metodo === 'metalico' ? row.cobrador : null,
+          justificante_url: row.metodo === 'transferencia' ? row.justificante_url : null,
+        }
+        if (row.id) await supabase.from('tournament_payments').update(payload).eq('id', row.id)
+        else await supabase.from('tournament_payments').insert(payload)
+      }
+      setMsg('✅ Guardado')
+      setTimeout(() => setMsg(''), 2000)
+    } catch(e: any) { setMsg('Error: '+e.message) }
+    setSaving(false)
+  }
+
+  async function getSignedUrl(url: string) {
+    const path = url.split('/justificantes/')[1]
+    if (!path) { setViewingPdf(url); return }
+    const { data } = await supabase.storage.from('justificantes').createSignedUrl(path, 3600)
+    setViewingPdf(data?.signedUrl || url)
+  }
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', color:'var(--accent)', fontSize:13, fontWeight:600, cursor:'pointer', marginBottom:14 }}>
+        ← Volver
+      </button>
+
+      {/* Cabecera jugador */}
+      <div style={{ background:'var(--surface)', borderRadius:12, padding:'14px 16px', marginBottom:14, border:'1px solid var(--border)' }}>
+        <div style={{ fontWeight:800, fontSize:15, color:'var(--text)', marginBottom:2 }}>
+          {player.dorsal ? '#'+player.dorsal+' ' : ''}{player.name}
+        </div>
+        <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:8 }}>
+          {team.name} • {tournament.nombre}
+          {playerEntry && (
+            <span style={{ marginLeft:8 }}>
+              ✈️ {playerEntry.num_acomp_viaje || 0} acomp. viaje • 🏨 {playerEntry.num_acomp_estancia || 0} acomp. estancia
+            </span>
+          )}
+        </div>
+        <div style={{ display:'flex', gap:12 }}>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:18, fontWeight:800, color:'var(--accent)' }}>{totalPagado}€</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Pagado</div>
+          </div>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:18, fontWeight:800, color:'var(--text)' }}>{totalCostes}€</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Total</div>
+          </div>
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:18 }}>{totalPagado >= totalCostes ? '✅' : totalPagado > 0 ? '⚠️' : '❌'}</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Estado</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Selector concepto */}
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:14 }}>
+        {CONCEPTOS.filter((c: any) => tournament[c.campo] > 0).map((c: any) => {
+          const paid = totalPagadoConcepto(c.key)
+          const total = tournament[c.campo]
+          const st = paid >= total ? '#22c55e' : paid > 0 ? '#f59e0b' : 'var(--text-muted)'
+          return (
+            <button key={c.key} onClick={() => setActiveConcepto(c.key)}
+              style={{ flex:'1 1 calc(33% - 4px)', padding:'8px 4px', borderRadius:8, border:'2px solid',
+                borderColor: activeConcepto === c.key ? 'var(--accent)' : 'transparent',
+                background: activeConcepto === c.key ? 'var(--surface)' : 'var(--surface2)',
+                cursor:'pointer', textAlign:'center' }}>
+              <div style={{ fontSize:14 }}>{c.icon}</div>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--text)', marginTop:2 }}>{c.label}</div>
+              <div style={{ fontSize:11, fontWeight:700, color:st }}>{paid}/{total}€</div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Formulario de pagos del concepto activo */}
+      <div style={{ background:'var(--surface)', borderRadius:12, padding:'12px 16px', marginBottom:10, border:'1px solid var(--border)' }}>
+        <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)', marginBottom:12, textTransform:'uppercase', letterSpacing:1 }}>
+          {CONCEPTOS.find((c: any) => c.key === activeConcepto)?.icon} {CONCEPTOS.find((c: any) => c.key === activeConcepto)?.label} — {tournament[CONCEPTOS.find((c: any) => c.key === activeConcepto)?.campo as string] || 0}€
+        </div>
+        {formData.map((row, idx) => (
+          <div key={idx} style={{ marginBottom:12, paddingBottom:12, borderBottom: idx < formData.length-1 ? '1px solid var(--border)' : 'none' }}>
+            <div style={{ fontSize:11, color:'var(--accent)', fontWeight:700, marginBottom:6 }}>Pago {row.numero} {row.id && '✅'}</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+              <div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:3 }}>Fecha</div>
+                <input type="date" value={row.fecha} onChange={e => updateField(idx,'fecha',e.target.value)}
+                  style={{ width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text)', fontSize:12, boxSizing:'border-box' }} />
+              </div>
+              <div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:3 }}>Cantidad (€)</div>
+                <input type="number" value={row.cantidad} onChange={e => updateField(idx,'cantidad',e.target.value)}
+                  placeholder="0.00"
+                  style={{ width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface2)', color:'var(--text)', fontSize:12, boxSizing:'border-box' }} />
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+              {['transferencia','metalico'].map(m => (
+                <button key={m} onClick={() => updateField(idx,'metodo',m)}
+                  style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', fontWeight:600, fontSize:12, cursor:'pointer',
+                    background: row.metodo === m ? (m==='transferencia' ? '#3b82f6' : '#22c55e') : 'var(--surface2)',
+                    color: row.metodo === m ? 'white' : 'var(--text-muted)' }}>
+                  {m === 'transferencia' ? '🏦 Transferencia' : '💵 Metálico'}
+                </button>
+              ))}
+            </div>
+            {row.metodo === 'transferencia' && (
+              <div>
+                {row.justificante_url ? (
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={() => getSignedUrl(row.justificante_url)}
+                      style={{ flex:1, padding:'6px', background:'#3b82f6', color:'white', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                      📄 Ver PDF
+                    </button>
+                    <button onClick={() => fileRefs.current[idx+'_'+activeConcepto]?.click()}
+                      style={{ padding:'6px 10px', background:'var(--surface2)', color:'var(--text-muted)', border:'1px solid var(--border)', borderRadius:6, fontSize:12, cursor:'pointer' }}>
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => fileRefs.current[idx+'_'+activeConcepto]?.click()}
+                    style={{ width:'100%', padding:'8px', background:'var(--surface2)', color:'var(--text-muted)', border:'2px dashed var(--border)', borderRadius:8, fontSize:12, cursor:'pointer', boxSizing:'border-box' }}>
+                    + Subir PDF
+                  </button>
+                )}
+                <input ref={el => fileRefs.current[idx+'_'+activeConcepto] = el} type="file" accept=".pdf" style={{ display:'none' }}
+                  onChange={e => { if(e.target.files?.[0]) uploadJustificante(idx+'_'+activeConcepto, e.target.files[0]) }} />
+              </div>
+            )}
+            {row.metodo === 'metalico' && (
+              <div style={{ display:'flex', gap:6 }}>
+                {['Borja','Victor','Rosa','Margot'].map(c => (
+                  <button key={c} onClick={() => updateField(idx,'cobrador',c)}
+                    style={{ flex:1, padding:'6px 4px', borderRadius:8, border:'none', fontWeight:600, fontSize:12, cursor:'pointer',
+                      background: row.cobrador === c ? '#22c55e' : 'var(--surface2)',
+                      color: row.cobrador === c ? 'white' : 'var(--text-muted)' }}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        <button onClick={addPago}
+          style={{ width:'100%', padding:'7px', background:'none', border:'1px dashed var(--border)', borderRadius:8, color:'var(--text-muted)', fontSize:12, cursor:'pointer', marginTop:4 }}>
+          + Añadir pago
+        </button>
+      </div>
+
+      {msg && (
+        <div style={{ padding:'10px 14px', borderRadius:8, background: msg.includes('Error') ? '#fee2e2' : '#dcfce7', color: msg.includes('Error') ? '#dc2626' : '#16a34a', fontSize:13, fontWeight:600, marginBottom:12 }}>
+          {msg}
+        </div>
+      )}
+
+      <button onClick={saveConcepto} disabled={saving}
+        style={{ width:'100%', padding:'14px', background:'var(--accent)', color:'white', border:'none', borderRadius:12, fontSize:15, fontWeight:800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+        {saving ? 'Guardando...' : 'Guardar pagos'}
+      </button>
+
+      {viewingPdf && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', zIndex:1000, display:'flex', flexDirection:'column' }}>
+          <div style={{ display:'flex', justifyContent:'flex-end', padding:12 }}>
+            <button onClick={() => setViewingPdf(null)} style={{ background:'white', border:'none', borderRadius:8, padding:'6px 14px', fontWeight:700, cursor:'pointer' }}>Cerrar</button>
+          </div>
+          <iframe src={viewingPdf} style={{ flex:1, border:'none' }} />
         </div>
       )}
     </div>
