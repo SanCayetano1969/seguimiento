@@ -167,6 +167,34 @@ export default function TesoreriaPage() {
         {/* TAB FICHAS */}
         {!loading && tab === 'fichas' && !selectedPlayer && (
           <div>
+            {(() => {
+              const totalCuotas = teams.reduce((sum, team) => {
+                const teamPlayers = players[team.id] || []
+                return sum + teamPlayers.reduce((s, p) => {
+                  const cuota = plans[p.id]?.importe_personalizado ?? teamFees[team.id] ?? 0
+                  return s + cuota
+                }, 0)
+              }, 0)
+              const totalCobrado = teams.reduce((sum, team) => {
+                const teamPlayers = players[team.id] || []
+                return sum + teamPlayers.reduce((s, p) => s + getPlayerPaid(p.id), 0)
+              }, 0)
+              const totalPendiente = totalCuotas - totalCobrado
+              return totalCuotas > 0 ? (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                  {[
+                    { label: 'Total a cobrar', val: totalCuotas, color: 'var(--text)' },
+                    { label: 'Cobrado', val: totalCobrado, color: '#22c55e' },
+                    { label: 'Pendiente', val: totalPendiente, color: totalPendiente > 0 ? '#ef4444' : '#22c55e' },
+                  ].map(item => (
+                    <div key={item.label} style={{ flex: 1, background: 'var(--surface)', borderRadius: 10, padding: '10px 8px', textAlign: 'center', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: item.color }}>{item.val.toFixed(0)}€</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null
+            })()}
             {teams.map(team => {
               const fee = teamFees[team.id]
               const teamPlayers = players[team.id] || []
@@ -190,6 +218,18 @@ export default function TesoreriaPage() {
                         {pending > 0 && <span style={{ color: '#ef4444' }}>❌ {pending}</span>}
                       </div>
                     </div>
+                    {(() => {
+                      const totalEquipo = teamPlayers.reduce((s, p) => s + (plans[p.id]?.importe_personalizado ?? fee ?? 0), 0)
+                      const cobradoEquipo = teamPlayers.reduce((s, p) => s + getPlayerPaid(p.id), 0)
+                      const pendienteEquipo = totalEquipo - cobradoEquipo
+                      return totalEquipo > 0 ? (
+                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total: <b style={{ color: 'var(--text)' }}>{totalEquipo.toFixed(0)}€</b></span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>• Cobrado: <b style={{ color: '#22c55e' }}>{cobradoEquipo.toFixed(0)}€</b></span>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>• Pendiente: <b style={{ color: pendienteEquipo > 0 ? '#ef4444' : '#22c55e' }}>{pendienteEquipo.toFixed(0)}€</b></span>
+                        </div>
+                      ) : null
+                    })()}
                     {session.role === 'admin' && (
                       <button onClick={e => { e.stopPropagation(); setEditingFee(team.id); setFeeInput(fee?.toString() || '') }}
                         style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: '1px solid var(--accent)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
@@ -307,6 +347,25 @@ export default function TesoreriaPage() {
             )}
 
             {/* Lista patrocinadores */}
+            {sponsors.length > 0 && (() => {
+              const totalComprometido = sponsors.reduce((s, sp) => s + (sp.cantidad_comprometida || 0), 0)
+              const totalCobrado = sponsors.reduce((s, sp) => s + getSponsorPaid(sp.id), 0)
+              const totalPendiente = totalComprometido - totalCobrado
+              return (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                  {[
+                    { label: 'Total comprometido', val: totalComprometido, color: 'var(--text)' },
+                    { label: 'Cobrado', val: totalCobrado, color: '#22c55e' },
+                    { label: 'Pendiente', val: totalPendiente, color: totalPendiente > 0 ? '#ef4444' : '#22c55e' },
+                  ].map(item => (
+                    <div key={item.label} style={{ flex: 1, background: 'var(--surface)', borderRadius: 10, padding: '10px 8px', textAlign: 'center', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: item.color }}>{item.val.toFixed(0)}€</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
             {sponsors.length === 0 && !showNewSponsor && (
               <div style={{ textAlign: 'center', padding: 40 }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div>
