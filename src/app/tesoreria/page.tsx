@@ -1200,9 +1200,36 @@ function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, to
   const [selectedTeamForPlayer, setSelectedTeamForPlayer] = useState<any>(null)
   const [localPlayers, setLocalPlayers] = useState<any[]>(initPlayers)
   const [savingPlayer, setSavingPlayer] = useState<string|null>(null)
+  const [editingCostes, setEditingCostes] = useState(false)
+  const [costesForm, setCostesForm] = useState({
+    coste_inscripcion: tournament.coste_inscripcion?.toString() || '0',
+    coste_traslados: tournament.coste_traslados?.toString() || '0',
+    coste_estancia: tournament.coste_estancia?.toString() || '0',
+    coste_viaje_acomp: tournament.coste_viaje_acomp?.toString() || '0',
+    coste_estancia_acomp: tournament.coste_estancia_acomp?.toString() || '0',
+    costes_extras: tournament.costes_extras?.toString() || '0',
+  })
+  const [savingCostes, setSavingCostes] = useState(false)
+  const [localTournament, setLocalTournament] = useState(tournament)
 
   const participatingTeams = teams.filter((t: any) => tournamentTeamIds.includes(t.id))
-  const totalCostes = CONCEPTOS.reduce((s: number, c: any) => s + (tournament[c.campo] || 0), 0)
+  const totalCostes = CONCEPTOS.reduce((s: number, c: any) => s + (localTournament[c.campo] || 0), 0)
+
+  async function saveCostes() {
+    setSavingCostes(true)
+    const payload = {
+      coste_inscripcion: parseFloat(costesForm.coste_inscripcion) || 0,
+      coste_traslados: parseFloat(costesForm.coste_traslados) || 0,
+      coste_estancia: parseFloat(costesForm.coste_estancia) || 0,
+      coste_viaje_acomp: parseFloat(costesForm.coste_viaje_acomp) || 0,
+      coste_estancia_acomp: parseFloat(costesForm.coste_estancia_acomp) || 0,
+      costes_extras: parseFloat(costesForm.costes_extras) || 0,
+    }
+    await supabase.from('tournaments').update(payload).eq('id', tournament.id)
+    setLocalTournament((t: any) => ({ ...t, ...payload }))
+    setEditingCostes(false)
+    setSavingCostes(false)
+  }
 
   async function togglePlayer(player: any, teamId: string) {
     const existing = localPlayers.find((p: any) => p.player_id === player.id)
@@ -1249,10 +1276,10 @@ function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, to
         <div style={{ fontWeight:800, fontSize:16, color:'var(--text)', marginBottom:6 }}>🏆 {tournament.nombre}</div>
         <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:10 }}>{participatingTeams.map((t: any) => t.name).join(' • ')}</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
-          {CONCEPTOS.filter((c: any) => tournament[c.campo] > 0).map((c: any) => (
+          {CONCEPTOS.filter((c: any) => localTournament[c.campo] > 0).map((c: any) => (
             <div key={c.key} style={{ textAlign:'center', padding:'6px 4px', background:'var(--surface2)', borderRadius:8 }}>
               <div style={{ fontSize:14 }}>{c.icon}</div>
-              <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)' }}>{tournament[c.campo]}€</div>
+              <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)' }}>{localTournament[c.campo]}€</div>
               <div style={{ fontSize:10, color:'var(--text-muted)' }}>{c.label}</div>
             </div>
           ))}
@@ -1260,6 +1287,48 @@ function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, to
         <div style={{ marginTop:10, fontSize:12, color:'var(--text-muted)', textAlign:'right' }}>
           Total por jugador: <b style={{ color:'var(--accent)', fontSize:14 }}>{totalCostes}€</b>
         </div>
+        {/* Botón editar costes */}
+        {session?.role === 'admin' && !editingCostes && (
+          <button onClick={() => setEditingCostes(true)}
+            style={{ fontSize:11, color:'var(--accent)', background:'none', border:'1px solid var(--accent)', borderRadius:6, padding:'3px 10px', cursor:'pointer', marginTop:8 }}>
+            ✏️ Editar costes
+          </button>
+        )}
+
+        {/* Formulario edición costes */}
+        {editingCostes && (
+          <div style={{ marginTop:10, padding:'12px', background:'var(--surface2)', borderRadius:10, border:'1px solid var(--accent)' }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)', marginBottom:10 }}>Editar costes por jugador</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
+              {[
+                { field:'coste_inscripcion', label:'Inscripción', icon:'🏷️' },
+                { field:'coste_traslados', label:'Traslados', icon:'🚌' },
+                { field:'coste_estancia', label:'Estancia', icon:'🏨' },
+                { field:'coste_viaje_acomp', label:'Viaje acomp.', icon:'✈️' },
+                { field:'coste_estancia_acomp', label:'Estancia acomp.', icon:'🛏️' },
+                { field:'costes_extras', label:'Extras', icon:'➕' },
+              ].map(({ field, label, icon }) => (
+                <div key={field}>
+                  <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:3 }}>{icon} {label}</div>
+                  <input type="number" value={(costesForm as any)[field]}
+                    onChange={e => setCostesForm(f => ({ ...f, [field]: e.target.value }))}
+                    style={{ width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontSize:12, boxSizing:'border-box' }} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={saveCostes} disabled={savingCostes}
+                style={{ flex:1, padding:'8px', background:'var(--accent)', color:'white', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                {savingCostes ? 'Guardando...' : 'Guardar costes'}
+              </button>
+              <button onClick={() => setEditingCostes(false)}
+                style={{ padding:'8px 14px', background:'none', border:'1px solid var(--border)', borderRadius:8, color:'var(--text-muted)', fontSize:13, cursor:'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Totales globales */}
         <div style={{ display:'flex', gap:8, marginTop:12, paddingTop:12, borderTop:'1px solid var(--border)' }}>
           <div style={{ flex:1, textAlign:'center', padding:'8px', background:'var(--surface2)', borderRadius:8 }}>
