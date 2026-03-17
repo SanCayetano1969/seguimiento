@@ -43,6 +43,8 @@ export default function ClubPage() {
   const [showAnnModal, setShowAnnModal] = useState(false)
   const [reports, setReports] = useState<any[]>([])
   const [loadingReports, setLoadingReports] = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
+  const [reportMsg, setReportMsg] = useState('')
   const [lastEvalDays, setLastEvalDays] = useState<Record<string, number>>({})
   const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
 
@@ -141,11 +143,35 @@ export default function ClubPage() {
     { area: 'Psicológ.', value: +(teams.reduce((s,t) => s+(t.avg_psico||0), 0)/Math.max(teams.length,1)).toFixed(1) },
   ]
 
+  async function generateReport() {
+    setGeneratingReport(true)
+    setReportMsg('')
+    const now = new Date()
+    const mes = now.getMonth() + 1
+    const anno = now.getFullYear()
+    try {
+      const res = await fetch('/api/cron/informe-mensual?manual=1&mes=' + mes + '&anno=' + anno)
+      const data = await res.json()
+      if (data.ok) {
+        setReportMsg('Informe de ' + ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes-1] + ' generado correctamente')
+        // Recargar informes
+        supabase.from('monthly_reports').select('id,mes,anyo,team_id,created_at,contenido')
+          .order('anyo', { ascending: false }).order('mes', { ascending: false })
+          .then(({ data: d }) => setReports(d || []))
+      } else {
+        setReportMsg('Error generando el informe')
+      }
+    } catch(e) {
+      setReportMsg('Error de conexión')
+    }
+    setGeneratingReport(false)
+  }
+
   useEffect(() => {
     if (tab !== 'informes') return
     setLoadingReports(true)
-    supabase.from('monthly_reports').select('id,mes,año,team_id,created_at,contenido->team_name')
-      .order('año', { ascending: false })
+    supabase.from('monthly_reports').select('id,mes,anyo,team_id,created_at,contenido')
+      .order('anyo', { ascending: false })
       .order('mes', { ascending: false })
       .then(({ data }) => { setReports(data || []); setLoadingReports(false) })
   }, [tab])
@@ -354,6 +380,24 @@ export default function ClubPage() {
       {/* TAB INFORMES */}
       {tab === 'informes' && (
         <div style={{ padding: '0 4px' }}>
+          {/* Botón generar informe manual */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              Los informes se generan automáticamente el día 1 de cada mes.
+            </div>
+            <button
+              onClick={generateReport}
+              disabled={generatingReport}
+              style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: generatingReport ? 'not-allowed' : 'pointer', opacity: generatingReport ? 0.7 : 1, whiteSpace: 'nowrap' }}
+            >
+              {generatingReport ? '⏳ Generando...' : '🔄 Generar informe ahora'}
+            </button>
+          </div>
+          {reportMsg && (
+            <div style={{ marginBottom: 12, padding: '8px 14px', borderRadius: 8, background: reportMsg.includes('Error') ? '#fee2e2' : '#dcfce7', color: reportMsg.includes('Error') ? '#dc2626' : '#16a34a', fontSize: 13, fontWeight: 600 }}>
+              {reportMsg}
+            </div>
+          )}
           {loadingReports ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Cargando informes...</div>
           ) : reports.length === 0 ? (
@@ -366,7 +410,7 @@ export default function ClubPage() {
             // Agrupar por mes/año
             const grupos: Record<string, any[]> = {}
             reports.forEach((r: any) => {
-              const key = r.mes + '-' + r.año
+              const key = r.mes + '-' + r.anyo
               if (!grupos[key]) grupos[key] = []
               grupos[key].push(r)
             })
