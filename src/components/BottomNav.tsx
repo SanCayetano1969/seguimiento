@@ -49,6 +49,16 @@ const IconUsers = () => (
   </svg>
 )
 
+function IconMoney() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="6" width="20" height="12" rx="2"/>
+      <circle cx="12" cy="12" r="2"/>
+      <path d="M6 12h.01M18 12h.01"/>
+    </svg>
+  )
+}
+
 export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 0 }: Props) {
   const router = useRouter()
   const path = usePathname()
@@ -103,6 +113,7 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
     { icon: <IconChat />,     label: 'Mensajes',   route: '/mensajeria',  show: true, badge: unreadMessages },
     { icon: <IconSearch />,   label: 'Ojeador',    route: '/ojeador',     show: true },
     { icon: <IconBook />,     label: 'Biblioteca', route: '/biblioteca',  show: true },
+    { icon: <IconMoney />,    label: 'Tesorería', route: '/tesoreria',   show: ['admin','coordinator','secretario','ejecutivo'].includes(role) },
   ]
 
   return (
