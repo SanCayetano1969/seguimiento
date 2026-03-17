@@ -143,7 +143,7 @@ export async function GET(req: Request) {
         id: p.id,
         dorsal: p.dorsal,
         nombre: p.name,
-        posicion: p.posicion,
+        posicion: p.position,
         temporada: statsTemporada,
         mes: statsMesJugador,
         convocatorias_mes: convocatoriasJugador,
