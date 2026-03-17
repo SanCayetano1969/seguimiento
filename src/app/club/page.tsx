@@ -39,8 +39,10 @@ export default function ClubPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [unread, setUnread]     = useState(0)
   const [loading, setLoading]   = useState(true)
-  const [tab, setTab]           = useState<'overview'|'agenda'|'anuncios'>('overview')
+  const [tab, setTab]           = useState<'overview'|'agenda'|'anuncios'|'informes'>('overview')
   const [showAnnModal, setShowAnnModal] = useState(false)
+  const [reports, setReports] = useState<any[]>([])
+  const [loadingReports, setLoadingReports] = useState(false)
   const [lastEvalDays, setLastEvalDays] = useState<Record<string, number>>({})
   const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
 
@@ -139,6 +141,15 @@ export default function ClubPage() {
     { area: 'Psicológ.', value: +(teams.reduce((s,t) => s+(t.avg_psico||0), 0)/Math.max(teams.length,1)).toFixed(1) },
   ]
 
+  useEffect(() => {
+    if (tab !== 'informes') return
+    setLoadingReports(true)
+    supabase.from('monthly_reports').select('id,mes,año,team_id,created_at,contenido->team_name')
+      .order('año', { ascending: false })
+      .order('mes', { ascending: false })
+      .then(({ data }) => { setReports(data || []); setLoadingReports(false) })
+  }, [tab])
+
   return (
     <div className="page-content">
       {/* Header */}
@@ -162,9 +173,9 @@ export default function ClubPage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', padding: '12px 16px 0', gap: 8 }}>
-        {(['overview','agenda','anuncios'] as const).map(t => (
+        {(['overview','agenda','anuncios','informes'] as const).map(t => (
           <button key={t} className={`btn btn-sm ${tab === t ? 'btn-gold' : 'btn-ghost'}`} onClick={() => setTab(t)}>
-            {t === 'overview' ? '📊 Resumen' : t === 'agenda' ? '📅 Agenda' : '📢 Tablón'}
+            {t === 'overview' ? '📊 Resumen' : t === 'agenda' ? '📅 Agenda' : t === 'anuncios' ? '📢 Tablón' : '📋 Informes'}
           </button>
         ))}
       </div>
@@ -339,7 +350,71 @@ export default function ClubPage() {
         </div>
       )}
 
-      <BottomNav role={session.role} unreadMessages={unread} pendingRequests={requests.length} />
+
+      {/* TAB INFORMES */}
+      {tab === 'informes' && (
+        <div style={{ padding: '0 4px' }}>
+          {loadingReports ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Cargando informes...</div>
+          ) : reports.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>No hay informes generados todavía.</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>Los informes se generan automáticamente el día 1 de cada mes.</div>
+            </div>
+          ) : (() => {
+            // Agrupar por mes/año
+            const grupos: Record<string, any[]> = {}
+            reports.forEach((r: any) => {
+              const key = r.mes + '-' + r.año
+              if (!grupos[key]) grupos[key] = []
+              grupos[key].push(r)
+            })
+            return (
+              <div>
+                {Object.entries(grupos).map(([key, items]) => {
+                  const [mesStr, annoStr] = key.split('-')
+                  const mes = parseInt(mesStr)
+                  const anno = parseInt(annoStr)
+                  const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes-1]
+                  return (
+                    <div key={key} style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                        📅 {mesNombre} {anno}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {(items as any[]).sort((a: any, b: any) => (a.contenido?.team_name || '').localeCompare(b.contenido?.team_name || '')).map((r: any) => (
+                          <div key={r.id} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4 }}>
+                                {r.contenido?.team_name || 'Equipo'}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                PJ: {r.contenido?.temporada?.pj ?? '—'} &nbsp;
+                                • {r.contenido?.partidos_mes?.length ?? 0} partidos en {mesNombre}
+                              </div>
+                            </div>
+                            <a
+                              href={'/api/generate-pdf?id=' + r.id}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 12, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                            >
+                              📄 Ver informe
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+            <BottomNav role={session.role} unreadMessages={unread} pendingRequests={requests.length} />
     </div>
   )
 }
