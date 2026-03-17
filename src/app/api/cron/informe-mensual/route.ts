@@ -161,12 +161,13 @@ export async function GET(req: Request) {
     }
 
     // Guardar en Supabase
-    await supabase.from('monthly_reports').upsert({
+    const { error: upsertErr } = await supabase.from('monthly_reports').upsert({
       mes,
       anyo: anno,
       team_id: team.id,
       contenido: informe,
-    }, { onConflict: 'mes,año,team_id' })
+    }, { onConflict: 'mes,anyo,team_id' })
+    if (upsertErr) console.error('upsert error:', upsertErr.message)
 
     informes.push({ team: team.name, pj_mes: partidosMes.length })
   }
