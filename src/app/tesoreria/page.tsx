@@ -405,6 +405,7 @@ export default function TesoreriaPage() {
             sponsor={selectedSponsor}
             temporada={TEMPORADA}
             payments={sponsorPayments[selectedSponsor.id] || []}
+            session={session}
             onBack={() => { setSelectedSponsor(null); loadData() }}
           />
         )}
@@ -733,12 +734,15 @@ function PlayerPanel({ player, team, temporada, session, teamFee, plan, payments
 }
 
 // ===================== PANEL PATROCINADOR =====================
-function SponsorPanel({ sponsor, temporada, payments, onBack }: any) {
+function SponsorPanel({ sponsor, temporada, payments, session, onBack }: any) {
   const [numParcelas, setNumParcelas] = useState<number>(payments.length || 1)
   const [formData, setFormData] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [viewingPdf, setViewingPdf] = useState<string|null>(null)
+  const [editingCantidad, setEditingCantidad] = useState(false)
+  const [nuevaCantidad, setNuevaCantidad] = useState(sponsor.cantidad_comprometida?.toString() || '')
+  const [savingCantidad, setSavingCantidad] = useState(false)
   const fileRefs = useRef<Record<number, HTMLInputElement|null>>({})
 
   const totalPagado = payments.reduce((s: number, p: any) => s + (p.cantidad || 0), 0)
@@ -803,6 +807,16 @@ function SponsorPanel({ sponsor, temporada, payments, onBack }: any) {
     setSaving(false)
   }
 
+  async function saveCantidad() {
+    const val = parseFloat(nuevaCantidad)
+    if (isNaN(val) || val <= 0) return
+    setSavingCantidad(true)
+    await supabase.from('sponsors').update({ cantidad_comprometida: val }).eq('id', sponsor.id)
+    sponsor.cantidad_comprometida = val
+    setEditingCantidad(false)
+    setSavingCantidad(false)
+  }
+
   async function getSignedUrl(url: string) {
     const path = url.split('/justificantes/')[1]
     if (!path) { setViewingPdf(url); return }
@@ -820,6 +834,28 @@ function SponsorPanel({ sponsor, temporada, payments, onBack }: any) {
       <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '14px 16px', marginBottom: 14, border: '1px solid var(--border)' }}>
         <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{sponsor.nombre}</div>
         {sponsor.notas && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>{sponsor.notas}</div>}
+        {/* Editar cantidad comprometida - solo admin */}
+        {session?.role === 'admin' && !editingCantidad && (
+          <button onClick={() => setEditingCantidad(true)}
+            style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: '1px solid var(--accent)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer', marginBottom: 10 }}>
+            ✏️ Editar cantidad comprometida
+          </button>
+        )}
+        {session?.role === 'admin' && editingCantidad && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+            <input type="number" value={nuevaCantidad} onChange={e => setNuevaCantidad(e.target.value)}
+              placeholder="Nueva cantidad €"
+              style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13 }} />
+            <button onClick={saveCantidad} disabled={savingCantidad}
+              style={{ padding: '6px 14px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              {savingCantidad ? '...' : 'Guardar'}
+            </button>
+            <button onClick={() => setEditingCantidad(false)}
+              style={{ padding: '6px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer' }}>
+              ✕
+            </button>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 16 }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--accent)' }}>{totalPagado}€</div>
