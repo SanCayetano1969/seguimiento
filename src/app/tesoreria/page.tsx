@@ -567,8 +567,9 @@ export default function TesoreriaPage() {
                     </div>
                     <div style={{ display:'flex', gap:12, flexWrap:'wrap', fontSize:11 }}>
                       <span style={{ color:'var(--text-muted)' }}>{tplayers.length} jugadores</span>
-                      <span style={{ color:'var(--accent)' }}>Coste/jugador: {totalCostes}€</span>
+                      <span style={{ color:'var(--accent)' }}>💰 A cobrar: {(totalCostes * tplayers.length).toFixed(0)}€</span>
                       <span style={{ color:'#22c55e' }}>Cobrado: {totalPagado}€</span>
+                      <span style={{ color:'#ef4444' }}>Pendiente: {Math.max(0, totalCostes * tplayers.length - totalPagado).toFixed(0)}€</span>
                     </div>
                   </div>
                 </div>
@@ -1194,10 +1195,10 @@ const CONCEPTOS = [
   {key:'extras',label:'Extras',icon:'➕',campo:'costes_extras'},
 ]
 
-function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, tournamentPlayers, tournamentPayments, session, onBack }: any) {
+function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, tournamentPlayers: initPlayers, tournamentPayments, session, onBack }: any) {
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null)
   const [selectedTeamForPlayer, setSelectedTeamForPlayer] = useState<any>(null)
-  const [localPlayers, setLocalPlayers] = useState<any[]>(tournamentPlayers)
+  const [localPlayers, setLocalPlayers] = useState<any[]>(initPlayers)
   const [savingPlayer, setSavingPlayer] = useState<string|null>(null)
 
   const participatingTeams = teams.filter((t: any) => tournamentTeamIds.includes(t.id))
@@ -1259,6 +1260,36 @@ function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, to
         <div style={{ marginTop:10, fontSize:12, color:'var(--text-muted)', textAlign:'right' }}>
           Total por jugador: <b style={{ color:'var(--accent)', fontSize:14 }}>{totalCostes}€</b>
         </div>
+        {/* Totales globales */}
+        <div style={{ display:'flex', gap:8, marginTop:12, paddingTop:12, borderTop:'1px solid var(--border)' }}>
+          <div style={{ flex:1, textAlign:'center', padding:'8px', background:'var(--surface2)', borderRadius:8 }}>
+            <div style={{ fontSize:16, fontWeight:800, color:'var(--accent)' }}>{(totalCostes * localPlayers.length).toFixed(0)}€</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>A cobrar</div>
+          </div>
+          <div style={{ flex:1, textAlign:'center', padding:'8px', background:'var(--surface2)', borderRadius:8 }}>
+            <div style={{ fontSize:16, fontWeight:800, color:'#22c55e' }}>
+              {localPlayers.reduce((s: number, tp: any) => s + (tournamentPayments[tournament.id+'_'+tp.player_id]||[]).reduce((ss: number, p: any) => ss + (p.cantidad||0), 0), 0).toFixed(0)}€
+            </div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Cobrado</div>
+          </div>
+          <div style={{ flex:1, textAlign:'center', padding:'8px', background:'var(--surface2)', borderRadius:8 }}>
+            <div style={{ fontSize:16, fontWeight:800, color:'#ef4444' }}>
+              {Math.max(0, totalCostes * localPlayers.length - localPlayers.reduce((s: number, tp: any) => s + (tournamentPayments[tournament.id+'_'+tp.player_id]||[]).reduce((ss: number, p: any) => ss + (p.cantidad||0), 0), 0)).toFixed(0)}€
+            </div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Pendiente</div>
+          </div>
+        </div>
+        {/* Botón eliminar torneo - solo admin */}
+        {session?.role === 'admin' && (
+          <button onClick={async () => {
+            if (!confirm('¿Eliminar el torneo ' + tournament.nombre + '? Se eliminarán todos los datos asociados.')) return
+            await supabase.from('tournaments').delete().eq('id', tournament.id)
+            onBack()
+          }}
+            style={{ width:'100%', marginTop:10, padding:'8px', background:'none', border:'1px solid #ef4444', borderRadius:8, color:'#ef4444', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+            🗑️ Eliminar torneo
+          </button>
+        )}
       </div>
 
       {/* Por equipo */}
@@ -1294,10 +1325,17 @@ function TournamentDetail({ tournament, teams, allPlayers, tournamentTeamIds, to
                       </span>
                     )}
                     {enrolled && (
-                      <button onClick={() => { setSelectedPlayer(player); setSelectedTeamForPlayer(team) }}
-                        style={{ fontSize:11, padding:'3px 8px', background:'var(--accent)', color:'white', border:'none', borderRadius:6, cursor:'pointer' }}>
-                        Pagos
-                      </button>
+                      <>
+                        <button onClick={() => { setSelectedPlayer(player); setSelectedTeamForPlayer(team) }}
+                          style={{ fontSize:11, padding:'3px 8px', background:'var(--accent)', color:'white', border:'none', borderRadius:6, cursor:'pointer' }}>
+                          Pagos
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); togglePlayer(player, team.id) }}
+                          title="Quitar del torneo"
+                          style={{ fontSize:11, padding:'3px 7px', background:'none', border:'1px solid #ef4444', color:'#ef4444', borderRadius:6, cursor:'pointer', fontWeight:700 }}>
+                          ✕
+                        </button>
+                      </>
                     )}
                   </div>
                   {/* Acompañantes */}
