@@ -10,14 +10,19 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const isManual = searchParams.get('manual') === '1'
+  if (!isManual && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const now = new Date()
-  const mes = now.getMonth() === 0 ? 12 : now.getMonth()
-  const anno = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+  // Si se pasan parámetros, usar esos (permite generar informe del mes actual)
+  const mesParam = searchParams.get('mes')
+  const annoParam = searchParams.get('anno')
+  const mes = mesParam ? parseInt(mesParam) : (now.getMonth() === 0 ? 12 : now.getMonth())
+  const anno = annoParam ? parseInt(annoParam) : (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear())
   const primerDiaMes = new Date(anno, mes - 1, 1).toISOString()
   const ultimoDiaMes = new Date(anno, mes, 0, 23, 59, 59).toISOString()
 
@@ -158,7 +163,7 @@ export async function GET(req: Request) {
     // Guardar en Supabase
     await supabase.from('monthly_reports').upsert({
       mes,
-      año: anno,
+      anyo: anno,
       team_id: team.id,
       contenido: informe,
     }, { onConflict: 'mes,año,team_id' })
