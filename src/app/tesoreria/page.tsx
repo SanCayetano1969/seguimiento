@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
+import ExportMenu from '@/components/ExportMenu'
 
 const TEMPORADA = '2025-26'
 const COBRADORES = ['Borja', 'Victor', 'Rosa', 'Margot']
@@ -296,6 +297,60 @@ export default function TesoreriaPage() {
                         </div>
                       ) : null
                     })()}
+                    <div onClick={e => e.stopPropagation()}>
+                      <ExportMenu
+                        config={{
+                          title: team.name + ' — Fichas',
+                          filename: 'fichas_' + team.name.replace(/\s+/g,'_'),
+                          subtitle: 'Temporada ' + TEMPORADA,
+                          columns: [
+                            { header: 'Dorsal', key: 'dorsal' },
+                            { header: 'Nombre', key: 'nombre' },
+                            { header: 'Estado', key: 'estado' },
+                            { header: 'Pagado (€)', key: 'pagado' },
+                            { header: 'Cuota (€)', key: 'cuota' },
+                            { header: 'Pendiente (€)', key: 'pendiente' },
+                          ],
+                          rows: (players[team.id] || []).map(p => {
+                            const paid = getPlayerPaid(p.id)
+                            const q = plans[p.id]?.importe_personalizado ?? teamFees[team.id] ?? 0
+                            const st = getPlayerStatus(p, team.id)
+                            return {
+                              dorsal: p.dorsal || '',
+                              nombre: p.name,
+                              estado: st === 'pagado' ? 'Pagado' : st === 'parcial' ? 'Parcial' : 'Pendiente',
+                              pagado: paid,
+                              cuota: q,
+                              pendiente: Math.max(0, q - paid),
+                            }
+                          }),
+                          extraColumns: [
+                            { header: 'Num. pagos', key: 'nPagos' },
+                            { header: 'Metodo', key: 'metodo' },
+                            { header: 'Cobrador', key: 'cobrador' },
+                          ],
+                          extraRows: (players[team.id] || []).map(p => {
+                            const paid = getPlayerPaid(p.id)
+                            const q = plans[p.id]?.importe_personalizado ?? teamFees[team.id] ?? 0
+                            const pags = payments[p.id] || []
+                            const st = getPlayerStatus(p, team.id)
+                            return {
+                              dorsal: p.dorsal || '',
+                              nombre: p.name,
+                              estado: st === 'pagado' ? 'Pagado' : st === 'parcial' ? 'Parcial' : 'Pendiente',
+                              pagado: paid,
+                              cuota: q,
+                              pendiente: Math.max(0, q - paid),
+                              nPagos: pags.length,
+                              metodo: pags.map((pp:any) => pp.metodo).join(', '),
+                              cobrador: pags.map((pp:any) => pp.cobrador || '').filter(Boolean).join(', '),
+                            }
+                          }),
+                        }}
+                        hasExtra={true}
+                        extraLabel="Con detalle de pagos"
+                      />
+                    </div>
                     {session.role === 'admin' && (
                       <button onClick={e => { e.stopPropagation(); setEditingFee(team.id); setFeeInput(fee?.toString() || '') }}
                         style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: '1px solid var(--accent)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
@@ -432,6 +487,60 @@ export default function TesoreriaPage() {
                 </div>
               )
             })()}
+            {sponsors.length > 0 && (
+              <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:10 }}>
+                <ExportMenu
+                  config={{
+                    title: 'Patrocinadores',
+                    filename: 'patrocinadores_' + TEMPORADA,
+                    subtitle: 'Temporada ' + TEMPORADA,
+                    columns: [
+                      { header: 'Nombre', key: 'nombre' },
+                      { header: 'Comprometido (€)', key: 'comprometido' },
+                      { header: 'Cobrado (€)', key: 'cobrado' },
+                      { header: 'Pendiente (€)', key: 'pendiente' },
+                      { header: 'Estado', key: 'estado' },
+                      { header: 'Notas', key: 'notas' },
+                    ],
+                    rows: sponsors.map(sp => {
+                      const paid = getSponsorPaid(sp.id)
+                      const st = getSponsorStatus(sp)
+                      return {
+                        nombre: sp.nombre,
+                        comprometido: sp.cantidad_comprometida,
+                        cobrado: paid,
+                        pendiente: Math.max(0, sp.cantidad_comprometida - paid),
+                        estado: st === 'pagado' ? 'Pagado' : st === 'parcial' ? 'Parcial' : 'Pendiente',
+                        notas: sp.notas || '',
+                      }
+                    }),
+                    extraColumns: [
+                      { header: 'Num. pagos', key: 'nPagos' },
+                      { header: 'Metodos', key: 'metodos' },
+                      { header: 'Cobradores', key: 'cobradores' },
+                    ],
+                    extraRows: sponsors.map(sp => {
+                      const paid = getSponsorPaid(sp.id)
+                      const st = getSponsorStatus(sp)
+                      const pags = sponsorPayments[sp.id] || []
+                      return {
+                        nombre: sp.nombre,
+                        comprometido: sp.cantidad_comprometida,
+                        cobrado: paid,
+                        pendiente: Math.max(0, sp.cantidad_comprometida - paid),
+                        estado: st === 'pagado' ? 'Pagado' : st === 'parcial' ? 'Parcial' : 'Pendiente',
+                        notas: sp.notas || '',
+                        nPagos: pags.length,
+                        metodos: pags.map((p:any) => p.metodo).join(', '),
+                        cobradores: pags.map((p:any) => p.cobrador || '').filter(Boolean).join(', '),
+                      }
+                    }),
+                  }}
+                  hasExtra={true}
+                  extraLabel="Con detalle de pagos"
+                />
+              </div>
+            )}
             {sponsors.length === 0 && !showNewSponsor && (
               <div style={{ textAlign: 'center', padding: 40 }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div>
@@ -542,6 +651,72 @@ export default function TesoreriaPage() {
               </div>
             )}
 
+            {tournaments.length > 0 && (
+              <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:10 }}>
+                <ExportMenu
+                  config={{
+                    title: 'Torneos',
+                    filename: 'torneos_' + TEMPORADA,
+                    subtitle: 'Temporada ' + TEMPORADA,
+                    columns: [
+                      { header: 'Torneo', key: 'nombre' },
+                      { header: 'Equipos', key: 'equipos' },
+                      { header: 'Jugadores', key: 'nJugadores' },
+                      { header: 'Coste/jugador (€)', key: 'costePorJugador' },
+                      { header: 'A cobrar (€)', key: 'aCobrar' },
+                      { header: 'Cobrado (€)', key: 'cobrado' },
+                      { header: 'Pendiente (€)', key: 'pendiente' },
+                    ],
+                    rows: tournaments.map(t => {
+                      const tteams = (tournamentTeams[t.id] || []).map((tid:string) => teams.find((te:any) => te.id === tid)?.name).filter(Boolean)
+                      const tplayers = tournamentPlayers[t.id] || []
+                      const totalCostes = ['coste_inscripcion','coste_traslados','coste_estancia','coste_viaje_acomp','coste_estancia_acomp','costes_extras'].reduce((s:number,c:string) => s+(t[c]||0), 0)
+                      const cobrado = tplayers.reduce((s:number,tp:any) => s + (tournamentPayments[t.id+'_'+tp.player_id]||[]).reduce((ss:number,p:any) => ss+(p.cantidad||0), 0), 0)
+                      return {
+                        nombre: t.nombre,
+                        equipos: tteams.join(', '),
+                        nJugadores: tplayers.length,
+                        costePorJugador: totalCostes,
+                        aCobrar: totalCostes * tplayers.length,
+                        cobrado,
+                        pendiente: Math.max(0, totalCostes * tplayers.length - cobrado),
+                      }
+                    }),
+                    extraColumns: [
+                      { header: 'Inscripcion (€)', key: 'inscripcion' },
+                      { header: 'Traslados (€)', key: 'traslados' },
+                      { header: 'Estancia (€)', key: 'estancia' },
+                      { header: 'Viaje acomp (€)', key: 'viajeAcomp' },
+                      { header: 'Estancia acomp (€)', key: 'estanciaAcomp' },
+                      { header: 'Extras (€)', key: 'extras' },
+                    ],
+                    extraRows: tournaments.map(t => {
+                      const tteams = (tournamentTeams[t.id] || []).map((tid:string) => teams.find((te:any) => te.id === tid)?.name).filter(Boolean)
+                      const tplayers = tournamentPlayers[t.id] || []
+                      const totalCostes = ['coste_inscripcion','coste_traslados','coste_estancia','coste_viaje_acomp','coste_estancia_acomp','costes_extras'].reduce((s:number,c:string) => s+(t[c]||0), 0)
+                      const cobrado = tplayers.reduce((s:number,tp:any) => s + (tournamentPayments[t.id+'_'+tp.player_id]||[]).reduce((ss:number,p:any) => ss+(p.cantidad||0), 0), 0)
+                      return {
+                        nombre: t.nombre,
+                        equipos: tteams.join(', '),
+                        nJugadores: tplayers.length,
+                        costePorJugador: totalCostes,
+                        aCobrar: totalCostes * tplayers.length,
+                        cobrado,
+                        pendiente: Math.max(0, totalCostes * tplayers.length - cobrado),
+                        inscripcion: t.coste_inscripcion || 0,
+                        traslados: t.coste_traslados || 0,
+                        estancia: t.coste_estancia || 0,
+                        viajeAcomp: t.coste_viaje_acomp || 0,
+                        estanciaAcomp: t.coste_estancia_acomp || 0,
+                        extras: t.costes_extras || 0,
+                      }
+                    }),
+                  }}
+                  hasExtra={true}
+                  extraLabel="Con desglose de costes"
+                />
+              </div>
+            )}
             {tournaments.length === 0 && !showNewTournament && (
               <div style={{ textAlign:'center', padding:40 }}>
                 <div style={{ fontSize:40, marginBottom:12 }}>🏆</div>
