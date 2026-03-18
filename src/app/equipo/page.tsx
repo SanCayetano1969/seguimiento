@@ -1436,7 +1436,22 @@ function EquipoContent() {
         </div>
       )}
       {/* PLANTILLA */}
-      {team && <PlantillaDropdown players={players} teamId={team.id} />}
+      {team && <PlantillaDropdown
+              players={players}
+              teamId={team.id}
+              teamName={team?.name || ''}
+              playerStats={Object.fromEntries(players.map(p => {
+                const pStats = matchStats.filter((m: any) => m.player_id === p.id)
+                return [p.id, {
+                  pj: pStats.length,
+                  min: pStats.reduce((s: number, m: any) => s + (m.minutos_jugados || 0), 0),
+                  gol: pStats.reduce((s: number, m: any) => s + (m.goles || 0), 0),
+                  asi: pStats.reduce((s: number, m: any) => s + (m.asistencias || 0), 0),
+                  amarillas: pStats.reduce((s: number, m: any) => s + (m.tarjetas_amarillas || 0), 0),
+                  rojas: pStats.reduce((s: number, m: any) => s + (m.tarjetas_rojas || 0), 0),
+                }]
+              }))}
+            />}
 
       {/* ESTADISTICAS EQUIPO */}
       {team && <EstadisticasEquipo team={team} matches={matches} />}
