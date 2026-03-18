@@ -11,11 +11,6 @@ export const maxDuration = 60
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const authHeader = req.headers.get('authorization')
-  const isManual = searchParams.get('manual') === '1'
-  if (!isManual && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const now = new Date()
   // Si se pasan parámetros, usar esos (permite generar informe del mes actual)
