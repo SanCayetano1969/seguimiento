@@ -35,6 +35,26 @@ export default function AgendaPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]       = useState<Partial<Event & { time_str: string, recurrence: string, recurrence_end: string, recurrence_days: number[] }>>({})
   const [saving, setSaving]   = useState(false)
+  const [markingEvent, setMarkingEvent] = useState<string|null>(null)
+
+  async function toggleSinInstalacion(ev: any) {
+    setMarkingEvent(ev.id)
+    const nuevo = !ev.sin_instalacion
+    await supabase.from('events').update({
+      sin_instalacion: nuevo,
+      sin_instalacion_at: nuevo ? new Date().toISOString() : null
+    }).eq('id', ev.id)
+    if (nuevo) {
+      await fetch('/api/sin-instalacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: ev.id, teamId: ev.team_id, title: ev.title, date: ev.date, location: ev.location })
+      })
+    }
+    setMarkingEvent(null)
+    loadData()
+  }
+
   const canEdit = canEditAgenda(session?.role || 'coach')
 
   useEffect(() => {
@@ -47,7 +67,7 @@ export default function AgendaPage() {
     const start = format(startOfMonth(month), 'yyyy-MM-dd')
     const end   = format(endOfMonth(month), 'yyyy-MM-dd')
     const [{ data: evData }, { data: teamsData }] = await Promise.all([
-      supabase.from('events').select('*, teams(name,category)')
+      supabase.from('events').select('*, teams(name,category), sin_instalacion, sin_instalacion_at')
         .gte('date', start).lte('date', end)
         .order('date').order('time'),
       supabase.from('teams').select('*').order('name'),
@@ -90,6 +110,8 @@ export default function AgendaPage() {
       recurrence: recurrence !== 'none' ? recurrence : null,
       recurrence_end: form.recurrence_end || null,
       recurrence_group_id: groupId,
+      sin_instalacion: false,
+      sin_instalacion_at: null,
     }
 
     if (form.id) {
@@ -133,6 +155,13 @@ export default function AgendaPage() {
   if (!session) return null
 
   return (
+    <>
+    <style>{`
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    `}</style>
     <div className="page-content">
       <div className="page-header" style={{ justifyContent: 'space-between' }}>
         <div style={{ fontWeight: 700, fontSize: 16 }}>📅 Agenda</div>
@@ -211,6 +240,12 @@ export default function AgendaPage() {
                     {ev.time ? ev.time.slice(0, 5) + 'h' : ''}
                     {ev.location ? ' · ' + ev.location : ''}
                   </div>
+                  {(ev as any).sin_instalacion && (
+                    <div style={{ marginTop: 4, padding: '4px 8px', background: '#ef4444', borderRadius: 6, fontSize: 11, fontWeight: 700, color: 'white',
+                      animation: 'pulse 1.5s infinite', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      ⚠️ SIN INSTALACIÓN — actividad no puede realizarse
+                    </div>
+                  )}
                   {(ev as any).teams && (
                     <span className="badge" style={{ background: 'var(--gold-dim)', color: 'var(--gold)', marginTop: 4, fontSize: 11 }}>{(ev as any).teams.name}</span>
                   )}
@@ -225,6 +260,16 @@ export default function AgendaPage() {
                       onClick={() => { setForm({ ...ev, time_str: ev.time || '', recurrence: (ev as any).recurrence || 'none', recurrence_days: [] }); setShowForm(true) }}>✏️</button>
                     <button className="btn btn-danger btn-sm" style={{ padding: '4px 8px', fontSize: 12 }}
                       onClick={() => deleteEvent(ev.id, (ev as any).recurrence_group_id)}>✕</button>
+                  {(session?.role === 'admin' || session?.role === 'secretario') && (
+                    <button
+                      onClick={() => toggleSinInstalacion(ev)}
+                      disabled={markingEvent === ev.id}
+                      style={{ padding: '4px 8px', fontSize: 12, borderRadius: 4, border: 'none', cursor: 'pointer', fontWeight: 700,
+                        background: (ev as any).sin_instalacion ? '#ef4444' : '#f59e0b',
+                        color: 'white', opacity: markingEvent === ev.id ? 0.6 : 1 }}>
+                      {(ev as any).sin_instalacion ? '✅ Restaurar' : '⚠️ Sin instalación'}
+                    </button>
+                  )}
                   </div>
                 )}
               </div>
@@ -337,5 +382,6 @@ export default function AgendaPage() {
 
       <BottomNav role={session.role} />
     </div>
+    </>
   )
 }
