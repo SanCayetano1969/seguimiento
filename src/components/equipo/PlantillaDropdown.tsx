@@ -1,12 +1,15 @@
 'use client'
 import { useState } from 'react'
+import ExportMenu from '@/components/ExportMenu'
 
 interface Props {
   players: any[]
   teamId: string
+  teamName?: string
+  playerStats?: Record<string, any>
 }
 
-export default function PlantillaDropdown({ players, teamId }: Props) {
+export default function PlantillaDropdown({ players, teamId, teamName = 'Equipo', playerStats = {} }: Props) {
   const [open, setOpen] = useState(false)
 
   function goToPlayer(playerId: string) {
@@ -23,6 +26,54 @@ export default function PlantillaDropdown({ players, teamId }: Props) {
           <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent)' }}>
             Plantilla ({players.length} jugadores)
           </span>
+          <div onClick={e => e.stopPropagation()}>
+            <ExportMenu
+              config={{
+                title: teamName + ' — Plantilla',
+                filename: 'plantilla_' + teamName.replace(/\s+/g,'_'),
+                columns: [
+                  { header: 'Dorsal', key: 'dorsal' },
+                  { header: 'Nombre', key: 'nombre' },
+                  { header: 'Posicion', key: 'posicion' },
+                  { header: 'Pie', key: 'pie' },
+                  { header: 'Año nacimiento', key: 'anyo' },
+                ],
+                rows: players.map(pl => ({
+                  dorsal: pl.dorsal || '',
+                  nombre: pl.name,
+                  posicion: pl.position || '',
+                  pie: pl.foot || '',
+                  anyo: pl.birth_year || '',
+                })),
+                extraColumns: [
+                  { header: 'PJ', key: 'pj' },
+                  { header: 'MIN', key: 'min' },
+                  { header: 'GOL', key: 'gol' },
+                  { header: 'ASI', key: 'asi' },
+                  { header: 'Amarillas', key: 'amarillas' },
+                  { header: 'Rojas', key: 'rojas' },
+                ],
+                extraRows: players.map(pl => {
+                  const st = playerStats[pl.id] || {}
+                  return {
+                    dorsal: pl.dorsal || '',
+                    nombre: pl.name,
+                    posicion: pl.position || '',
+                    pie: pl.foot || '',
+                    anyo: pl.birth_year || '',
+                    pj: st.pj || 0,
+                    min: st.min || 0,
+                    gol: st.gol || 0,
+                    asi: st.asi || 0,
+                    amarillas: st.amarillas || 0,
+                    rojas: st.rojas || 0,
+                  }
+                }),
+              }}
+              hasExtra={true}
+              extraLabel="Con estadísticas"
+            />
+          </div>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             {open ? 'cerrar' : 'ver todo'}
           </span>
