@@ -1,26 +1,20 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
-import { useRouter, usePathname } from 'next/navigation'
 
 export default function SinInstalacionBanner() {
   const [eventos, setEventos] = useState<any[]>([])
   const [visible, setVisible] = useState(true)
-  const pathname = usePathname()
-
-  // No mostrar en login
-  if (pathname === '/') return null
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     const session = getSession()
-    if (!session) return
-    // Solo para entrenadores, coordinadores y admin
-    const rolesQueVen = ['admin','coordinator','coach','secretario']
-    if (!rolesQueVen.includes(session.role)) return
+    if (!session) { setLoaded(true); return }
+    const rolesQueVen = ['admin', 'coordinator', 'coach', 'secretario']
+    if (!rolesQueVen.includes(session.role)) { setLoaded(true); return }
 
     async function check() {
       const hoy = new Date().toISOString().split('T')[0]
-      // Eventos marcados sin instalacion a partir de hoy
       let query = supabase
         .from('events')
         .select('id, title, date, time, location, team_id, teams(name)')
@@ -28,128 +22,124 @@ export default function SinInstalacionBanner() {
         .gte('date', hoy)
         .order('date', { ascending: true })
 
-      // Si es entrenador, filtrar solo su equipo
-      if (session.role === 'coach' && session.team_id) {
-        query = query.eq('team_id', session.team_id)
+      if (session.role === 'coach' && (session as any).team_id) {
+        query = query.eq('team_id', (session as any).team_id)
       }
 
       const { data } = await query
       setEventos(data || [])
+      setLoaded(true)
     }
 
     check()
-    // Refrescar cada 60 segundos
     const interval = setInterval(check, 60000)
     return () => clearInterval(interval)
-  }, [pathname])
+  }, [])
 
-  if (eventos.length === 0 || !visible) return null
+  // Reset visible cuando llegan nuevos eventos
+  useEffect(() => {
+    if (eventos.length > 0) setVisible(true)
+  }, [eventos.length])
+
+  if (!loaded || eventos.length === 0 || !visible) return null
 
   return (
     <>
       <style>{`
         @keyframes bannerPulse {
           0%, 100% { opacity: 1; }
-          50% { opacity: 0.85; }
+          50% { opacity: 0.8; }
         }
         .sin-inst-banner {
-          animation: bannerPulse 2s ease-in-out infinite;
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
+          top: 0; left: 0; right: 0;
           z-index: 9999;
           background: #dc2626;
           color: white;
           font-family: Arial, sans-serif;
-          font-size: 13px;
-          font-weight: 700;
-          box-shadow: 0 2px 12px rgba(220,38,38,0.5);
+          animation: bannerPulse 2s ease-in-out infinite;
+          box-shadow: 0 3px 16px rgba(220,38,38,0.6);
         }
         .sin-inst-inner {
-          max-width: 600px;
+          max-width: 640px;
           margin: 0 auto;
-          padding: 8px 16px;
+          padding: 8px 14px;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           gap: 10px;
         }
         .sin-inst-icon {
-          font-size: 18px;
+          font-size: 20px;
           flex-shrink: 0;
-          animation: bannerPulse 1s ease-in-out infinite;
+          margin-top: 1px;
         }
-        .sin-inst-content {
-          flex: 1;
-          min-width: 0;
-        }
+        .sin-inst-content { flex: 1; min-width: 0; }
         .sin-inst-title {
-          font-size: 12px;
+          font-size: 11px;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.8px;
           opacity: 0.9;
-          margin-bottom: 2px;
-        }
-        .sin-inst-events {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
+          margin-bottom: 3px;
         }
         .sin-inst-event {
           font-size: 12px;
+          font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          line-height: 1.5;
+        }
+        .sin-inst-more {
+          font-size: 11px;
+          opacity: 0.75;
+          margin-top: 1px;
         }
         .sin-inst-close {
-          background: rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.25);
           border: none;
           color: white;
           border-radius: 50%;
-          width: 22px;
-          height: 22px;
+          width: 24px;
+          height: 24px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: 16px;
           font-weight: 700;
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          line-height: 1;
+          margin-top: 2px;
         }
-        .sin-inst-close:hover {
-          background: rgba(255,255,255,0.3);
-        }
-        /* Empujar el contenido de la pagina hacia abajo */
-        .sin-inst-spacer {
-          height: 56px;
-        }
+        .sin-inst-close:hover { background: rgba(255,255,255,0.4); }
+        .sin-inst-spacer { height: 60px; }
       `}</style>
-
       <div className="sin-inst-spacer" />
       <div className="sin-inst-banner">
         <div className="sin-inst-inner">
           <span className="sin-inst-icon">⚠️</span>
           <div className="sin-inst-content">
             <div className="sin-inst-title">
-              {eventos.length === 1 ? '1 actividad sin instalación' : eventos.length + ' actividades sin instalación'}
+              {eventos.length === 1
+                ? 'Actividad sin instalación disponible'
+                : eventos.length + ' actividades sin instalación disponible'}
             </div>
-            <div className="sin-inst-events">
-              {eventos.slice(0, 3).map(ev => (
-                <div key={ev.id} className="sin-inst-event">
-                  {(ev as any).teams?.name ? (ev as any).teams.name + ' — ' : ''}
-                  {ev.title} · {new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-                  {ev.time ? ' ' + ev.time.slice(0,5) + 'h' : ''}
-                </div>
-              ))}
-              {eventos.length > 3 && (
-                <div className="sin-inst-event" style={{ opacity: 0.8 }}>
-                  + {eventos.length - 3} más...
-                </div>
-              )}
-            </div>
+            {eventos.slice(0, 2).map(ev => (
+              <div key={ev.id} className="sin-inst-event">
+                {(ev as any).teams?.name ? '● ' + (ev as any).teams.name + ' — ' : '● '}
+                {ev.title}
+                {' · '}
+                {new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', {
+                  weekday: 'short', day: 'numeric', month: 'short'
+                })}
+                {ev.time ? ' ' + ev.time.slice(0, 5) + 'h' : ''}
+              </div>
+            ))}
+            {eventos.length > 2 && (
+              <div className="sin-inst-more">+ {eventos.length - 2} más...</div>
+            )}
           </div>
-          <button className="sin-inst-close" onClick={() => setVisible(false)} title="Cerrar aviso temporalmente">
+          <button className="sin-inst-close" onClick={() => setVisible(false)}>
             ×
           </button>
         </div>
