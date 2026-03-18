@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import './globals.css'
 import SinInstalacionBanner from '@/components/SinInstalacionBanner'
 
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body>
-        <SinInstalacionBanner />
+        <Suspense fallback={null}>
+          <SinInstalacionBanner />
+        </Suspense>
         {children}
 
       </body>
