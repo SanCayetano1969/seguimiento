@@ -119,6 +119,17 @@ export default function ClubPage() {
       title: annForm.title, content: annForm.content,
       pinned: annForm.pinned, author_id: session!.id, author_name: session!.name
     })
+    // Notificar a todos los usuarios
+    fetch('/api/push/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: '📢 Tablón: ' + annForm.title,
+        body: annForm.content.substring(0, 80),
+        url: '/club',
+        excludeUserId: session!.id
+      })
+    }).catch(() => {})
     setShowAnnModal(false)
     setAnnForm({ title: '', content: '', pinned: false })
     loadData()
