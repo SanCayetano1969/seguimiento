@@ -91,6 +91,16 @@ export default function MensajeriaPage() {
       to_user_id: selected.id,
       body: body.trim(),
     })
+    // Enviar notificacion push al destinatario
+    fetch('/api/push/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toUserId: selected.id,
+        fromName: session.name || 'Mensaje nuevo',
+        body: body.trim().substring(0, 80)
+      })
+    }).catch(() => {}) // silencioso si falla
     setBody('')
     setSending(false)
     loadThread(selected.id)
