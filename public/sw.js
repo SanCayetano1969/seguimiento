@@ -1,5 +1,5 @@
-// v3 - forzar actualizacion SW
-const CACHE = 'sc-v3'
+// v4 - iOS compatible
+const CACHE = 'sc-v4'
 
 self.addEventListener('install', e => {
   self.skipWaiting()
@@ -28,14 +28,17 @@ self.addEventListener('push', function(event) {
     }
   }
 
+  // Opciones compatibles con iOS (sin vibrate ni renotify)
+  const options = {
+    body: body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: url },
+    tag: 'sc-notification',
+  }
+
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      vibrate: [200, 100, 200],
-      data: { url: url }
-    })
+    self.registration.showNotification(title, options)
   )
 })
 
@@ -43,7 +46,7 @@ self.addEventListener('notificationclick', function(event) {
   event.notification.close()
   const url = event.notification.data?.url || '/'
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.navigate(url)
