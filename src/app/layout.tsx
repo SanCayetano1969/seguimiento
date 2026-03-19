@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import './globals.css'
 import SinInstalacionBanner from '@/components/SinInstalacionBanner'
+import PushInit from '@/components/PushInit'
 
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Suspense fallback={null}>
           <SinInstalacionBanner />
         </Suspense>
+        <PushInit />
         {children}
 
       </body>
