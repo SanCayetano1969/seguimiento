@@ -230,9 +230,11 @@ export function roleBadge(role: Role) {
     admin:         { label: 'Admin',        color: '#9b59b6' },
     coordinator:   { label: 'Coordinador',  color: '#5bb8e8' },
     secretary:     { label: 'Secretario',   color: '#38A169' },
+    secretario:    { label: 'Secretario',   color: '#38A169' },
+    ejecutivo:     { label: 'Ejecutivo',    color: '#D97706' },
     psychologist:  { label: 'Psicólogo',    color: '#DD6B20' },
     coach:         { label: 'Entrenador',   color: '#F6AD55' },
     scout:         { label: 'Ojeador',      color: '#68D391' },
   }
-  return map[role]
+  return map[role] ?? { label: role || 'Usuario', color: '#718096' }
 }
