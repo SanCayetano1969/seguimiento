@@ -26,6 +26,7 @@ export default function AgendaPage() {
 
   const router = useRouter()
   const session = getSession()
+  const { canEdit: permCanEdit } = usePermissions()
 
   const [events, setEvents]   = useState<Event[]>([])
   const [teams, setTeams]     = useState<Team[]>([])
@@ -55,7 +56,7 @@ export default function AgendaPage() {
     loadData()
   }
 
-  const canEdit = canEditAgenda(session?.role || 'coach')
+  const canEdit = permCanEdit('agenda')
 
   useEffect(() => {
     if (!session) { router.push('/'); return }
