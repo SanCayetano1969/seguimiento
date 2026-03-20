@@ -2,6 +2,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { Role } from '@/lib/supabase'
+import { canView } from '@/lib/permissions'
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
 
@@ -61,6 +62,7 @@ function IconMoney() {
 
 export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 0 }: Props) {
   const router = useRouter()
+  const cv = (mod: Parameters<typeof canView>[1]) => canView(role, mod)
   const path = usePathname()
   const [notifStatus, setNotifStatus] = useState<'default'|'granted'|'denied'|'no-support'>('default')
 
