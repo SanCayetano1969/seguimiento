@@ -204,6 +204,11 @@ export default function ClubPage() {
             </span>
           )}
           <button className="btn btn-ghost btn-sm" onClick={() => { clearSession(); localStorage.removeItem('sc_access_code'); router.push('/') }}>Salir</button>
+          {session?.role === 'admin' && (
+            <button style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-muted)', padding: '4px 10px', fontSize: 12, cursor: 'pointer' }} onClick={() => router.push('/admin/usuarios')}>
+              ⚙️ Usuarios
+            </button>
+          )}
         </div>
       </div>
 
