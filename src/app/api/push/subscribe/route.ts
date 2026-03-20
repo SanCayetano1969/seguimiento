@@ -16,7 +16,13 @@ export async function POST(req: NextRequest) {
     const { endpoint, keys } = subscription
     const { p256dh, auth } = keys
 
-    // Upsert por endpoint (clave unica) — actualiza user_id si el endpoint ya existe
+    // 1. Borrar cualquier suscripcion existente con ese endpoint (otro usuario en mismo dispositivo)
+    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).neq('user_id', userId)
+
+    // 2. Borrar suscripcion anterior del mismo usuario (si cambia de dispositivo)
+    await supabase.from('push_subscriptions').delete().eq('user_id', userId).neq('endpoint', endpoint)
+
+    // 3. Insertar la nueva (o actualizar si ya existe exactamente igual)
     const { error } = await supabase
       .from('push_subscriptions')
       .upsert(
