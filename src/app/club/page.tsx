@@ -506,5 +506,3 @@ function RequestCard({ req, onResolve }: { req: any; onResolve: (id: string, res
     </div>
   )
 }
-
-// rebuild
