@@ -11,18 +11,17 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 function isIOS() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent)
+  return typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
 }
 
 function isInStandaloneMode() {
-  return ('standalone' in window.navigator) && (window.navigator as any).standalone === true
+  return typeof window !== 'undefined' && ('standalone' in window.navigator) && (window.navigator as any).standalone === true
 }
 
 async function doSubscribe(userId: string): Promise<string> {
   if (!('serviceWorker' in navigator)) return 'no-sw'
   if (!('PushManager' in window)) return 'no-push'
   if (isIOS() && !isInStandaloneMode()) return 'ios-not-installed'
-
   try {
     const reg = await navigator.serviceWorker.register('/sw.js')
     await navigator.serviceWorker.ready
@@ -40,7 +39,6 @@ async function doSubscribe(userId: string): Promise<string> {
     })
     return 'ok'
   } catch(e: any) {
-    console.error('Push subscribe error:', e)
     return 'error:' + e.message
   }
 }
@@ -48,57 +46,73 @@ async function doSubscribe(userId: string): Promise<string> {
 export default function PushSubscriber({ userId }: { userId: string }) {
   const [status, setStatus] = useState<string>('idle')
   const [iosNotInstalled, setIosNotInstalled] = useState(false)
+  // Solo descarte por sesion (sessionStorage), NO localStorage
   const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    if (!userId || dismissed) return
+    if (!userId) return
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setStatus('no-support'); return
     }
-    if (isIOS() && !isInStandaloneMode()) {
-      setIosNotInstalled(true); return
+
+    // Ya descartado esta sesion
+    if (sessionStorage.getItem('push_dismissed')) { setDismissed(true); return }
+
+    // iOS sin instalar como PWA
+    if (isIOS() && !isInStandaloneMode()) { setIosNotInstalled(true); return }
+
+    // Si ya tiene permiso concedido, suscribir automaticamente
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      doSubscribe(userId).then(r => { if (r === 'ok') setStatus('granted') })
+      return
     }
-    // Auto-suscribir si ya tiene permiso concedido
-    if (Notification.permission === 'granted') {
-      doSubscribe(userId).then(r => setStatus(r === 'ok' ? 'granted' : 'error'))
+    // Si denegado, no mostrar
+    if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+      setStatus('denied'); return
     }
   }, [userId])
+
+  function dismiss() {
+    sessionStorage.setItem('push_dismissed', '1')
+    setDismissed(true)
+  }
 
   async function handleActivate() {
     setStatus('checking')
     const result = await doSubscribe(userId)
     if (result === 'ok') setStatus('granted')
     else if (result === 'denied') setStatus('denied')
-    else if (result === 'ios-not-installed') setIosNotInstalled(true)
-    else setStatus(result)
+    else if (result === 'ios-not-installed') { setIosNotInstalled(true); setStatus('idle') }
+    else setStatus('idle')
   }
 
-  if (dismissed || status === 'granted' || status === 'no-support') return null
+  if (dismissed || status === 'granted' || status === 'no-support' || status === 'denied') return null
 
-  // iOS no instalada: instrucciones de instalacion
+  // Banner iOS no instalada
   if (iosNotInstalled) {
     return (
       <div style={{
         position: 'fixed', bottom: 80, left: 12, right: 12, zIndex: 998,
-        background: '#1e3a5f', border: '1px solid #3b82f6',
-        borderRadius: 12, padding: '12px 14px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        background: '#1e3a5f', border: '2px solid #3b82f6',
+        borderRadius: 12, padding: '14px 16px',
+        boxShadow: '0 4px 24px rgba(59,130,246,0.4)',
         fontFamily: 'Arial, sans-serif',
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <span style={{ fontSize: 22, flexShrink: 0 }}>📱</span>
+          <span style={{ fontSize: 24, flexShrink: 0 }}>📱</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'white', marginBottom: 6 }}>
               Activa las notificaciones en iPhone
             </div>
-            <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.6 }}>
-              1. Pulsa <b style={{ color: 'white' }}>Compartir</b> 🔗 en Safari<br/>
-              2. Toca <b style={{ color: 'white' }}>&quot;Añadir a pantalla de inicio&quot;</b><br/>
-              3. Abre la app desde el icono y acepta notificaciones
+            <div style={{ fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>
+              <b style={{ color: 'white' }}>1.</b> Pulsa <b style={{ color: 'white' }}>Compartir</b> 🔗 en Safari<br/>
+              <b style={{ color: 'white' }}>2.</b> Toca <b style={{ color: '#93c5fd' }}>“Añadir a pantalla de inicio”</b><br/>
+              <b style={{ color: 'white' }}>3.</b> Abre la app desde el icono<br/>
+              <b style={{ color: 'white' }}>4.</b> Acepta las notificaciones cuando aparezca el aviso
             </div>
           </div>
-          <button onClick={() => { setIosNotInstalled(false); setDismissed(true) }}
-            style={{ background: 'none', border: 'none', color: '#93c5fd', fontSize: 20, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}>
+          <button onClick={dismiss}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', fontSize: 18, cursor: 'pointer', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>
             ×
           </button>
         </div>
@@ -106,30 +120,34 @@ export default function PushSubscriber({ userId }: { userId: string }) {
     )
   }
 
-  // Mostrar boton activar si permiso no concedido aun
-  if (status === 'idle' && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+  // Banner activar notificaciones
+  if (status === 'idle') {
     return (
       <div style={{
         position: 'fixed', bottom: 80, left: 12, right: 12, zIndex: 998,
-        background: '#1e3a5f', border: '1px solid #3b82f6',
-        borderRadius: 12, padding: '10px 14px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        background: '#1e3a5f', border: '2px solid #3b82f6',
+        borderRadius: 12, padding: '12px 14px',
+        boxShadow: '0 4px 24px rgba(59,130,246,0.4)',
         fontFamily: 'Arial, sans-serif',
-        display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <span style={{ fontSize: 20 }}>🔔</span>
-        <div style={{ flex: 1, fontSize: 12, color: '#cbd5e1', lineHeight: 1.4 }}>
-          Activa las notificaciones para recibir avisos importantes
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22, flexShrink: 0 }}>🔔</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>Activa las notificaciones</div>
+            <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 2 }}>
+              Recibe avisos de mensajes, tablón y alarmas
+            </div>
+          </div>
+          <button onClick={handleActivate}
+            style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: 8,
+              padding: '8px 14px', fontSize: 13, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
+            Activar
+          </button>
+          <button onClick={dismiss}
+            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8', fontSize: 16, cursor: 'pointer', borderRadius: 6, padding: '2px 8px' }}>
+            ×
+          </button>
         </div>
-        <button onClick={handleActivate}
-          style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: 8,
-            padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' as const }}>
-          Activar
-        </button>
-        <button onClick={() => setDismissed(true)}
-          style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 18, cursor: 'pointer', padding: '0 2px' }}>
-          ×
-        </button>
       </div>
     )
   }
@@ -138,8 +156,9 @@ export default function PushSubscriber({ userId }: { userId: string }) {
     return (
       <div style={{
         position: 'fixed', bottom: 80, left: 12, right: 12, zIndex: 998,
-        background: '#1e3a5f', borderRadius: 12, padding: '10px 14px',
-        fontFamily: 'Arial, sans-serif', fontSize: 12, color: '#93c5fd', textAlign: 'center' as const
+        background: '#1e3a5f', borderRadius: 12, padding: '12px 16px',
+        fontFamily: 'Arial, sans-serif', fontSize: 13, color: '#93c5fd',
+        textAlign: 'center' as const, border: '2px solid #3b82f6'
       }}>
         Activando notificaciones...
       </div>
