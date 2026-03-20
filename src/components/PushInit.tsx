@@ -7,10 +7,18 @@ export default function PushInit() {
 
   useEffect(() => {
     const read = () => {
+      // Leer de sc_session (nuevo login) o sc_user_id (legacy)
+      try {
+        const session = localStorage.getItem('sc_session')
+        if (session) {
+          const parsed = JSON.parse(session)
+          if (parsed?.id) { setUserId(parsed.id); return }
+        }
+      } catch {}
+      // Fallback al campo antiguo
       setUserId(localStorage.getItem('sc_user_id') || '')
     }
     read()
-    // Escuchar login en la misma pestaña via custom event
     window.addEventListener('sc_login', read)
     window.addEventListener('storage', read)
     return () => {
