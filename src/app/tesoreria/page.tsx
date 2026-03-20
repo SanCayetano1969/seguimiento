@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
-import { usePermissions } from '@/hooks/usePermissions'
+import { canEdit as getCanEdit } from '@/lib/permissions'
 import ExportMenu from '@/components/ExportMenu'
 
 const TEMPORADA = '2025-26'
@@ -13,8 +13,7 @@ const ROLES_PERMITIDOS = ['admin', 'coordinator', 'secretario', 'ejecutivo']
 export default function TesoreriaPage() {
   const router = useRouter()
   const [session, setSession] = useState<any>(null)
-  const { canEdit: permCanEdit } = usePermissions()
-  const canEditTeso = permCanEdit('tesoreria')
+  const canEditTeso = getCanEdit(session?.role || '', 'tesoreria')
   const [tab, setTab] = useState<'fichas'|'patrocinadores'|'torneos'>('fichas')
   const [teams, setTeams] = useState<any[]>([])
   const [teamFees, setTeamFees] = useState<Record<string,number>>({})
