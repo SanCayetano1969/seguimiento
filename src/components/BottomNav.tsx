@@ -109,11 +109,11 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
 
   const items = [
     { icon: <IconHome />,     label: 'Inicio',     route: homeRoute,      show: true },
-    { icon: <IconCalendar />, label: 'Agenda',     route: '/agenda',      show: true, badge: pendingRequests },
-    { icon: <IconChat />,     label: 'Mensajes',   route: '/mensajeria',  show: true, badge: unreadMessages },
-    { icon: <IconSearch />,   label: 'Ojeador',    route: '/ojeador',     show: true },
-    { icon: <IconBook />,     label: 'Biblioteca', route: '/biblioteca',  show: true },
-    { icon: <IconMoney />,    label: 'Tesorería', route: '/tesoreria',   show: ['admin','coordinator','secretario','ejecutivo'].includes(role) },
+    { icon: <IconCalendar />, label: 'Agenda',     route: '/agenda',      show: cv('agenda'), badge: pendingRequests },
+    { icon: <IconChat />,     label: 'Mensajes',   route: '/mensajeria',  show: cv('mensajeria'), badge: unreadMessages },
+    { icon: <IconSearch />,   label: 'Ojeador',    route: '/ojeador',     show: cv('ojeador') },
+    { icon: <IconBook />,     label: 'Biblioteca', route: '/biblioteca',  show: cv('biblioteca') },
+    { icon: <IconMoney />,    label: 'Tesorería', route: '/tesoreria',   show: cv('tesoreria') },
   ]
 
   return (
