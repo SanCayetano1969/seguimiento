@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, clearSession, scoreColor, type Announcement } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
+import { usePermissions } from '@/hooks/usePermissions'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -32,6 +33,7 @@ function teamColor(name: string) {
 export default function ClubPage() {
   const router = useRouter()
   const session = getSession()
+  const { canEdit: permCanEdit } = usePermissions()
 
   const [teams, setTeams]       = useState<TeamOverview[]>([])
   const [events, setEvents]     = useState<any[]>([])
@@ -341,9 +343,11 @@ export default function ClubPage() {
           {/* ─── TABLÓN ─── */}
           {tab === 'anuncios' && (
             <div style={{ padding: '16px' }}>
+              {permCanEdit('tablon') && (
               <button className="btn btn-gold btn-full" style={{ marginBottom: 16 }} onClick={() => setShowAnnModal(true)}>
                 + Nuevo anuncio
               </button>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {announcements.map(a => (
                   <div key={a.id} className="card" style={a.pinned ? { borderColor: 'var(--gold)' } : {}}>
