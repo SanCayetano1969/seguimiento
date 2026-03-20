@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import './globals.css'
 import SinInstalacionBanner from '@/components/SinInstalacionBanner'
 import PushInit from '@/components/PushInit'
+import SessionSync from '@/components/SessionSync'
 
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SinInstalacionBanner />
         </Suspense>
         <PushInit />
+        <SessionSync />
         {children}
 
       </body>
