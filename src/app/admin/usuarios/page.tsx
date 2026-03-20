@@ -25,6 +25,7 @@ export default function AdminUsuariosPage() {
   const [resetPass, setResetPass] = useState('')
   const [resetting, setResetting] = useState(false)
   const [msg, setMsg] = useState('')
+  const [editingRoleId, setEditingRoleId] = useState<string|null>(null)
 
   useEffect(() => {
     if (!session || session.role !== 'admin') { router.push('/club'); return }
@@ -61,6 +62,17 @@ export default function AdminUsuariosPage() {
     setResetting(false)
   }
 
+  async function changeRole(userId: string, newRole: string) {
+    await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, role: newRole, adminId: session!.id })
+    })
+    setEditingRoleId(null)
+    setMsg('Rol actualizado')
+    loadUsers()
+  }
+
   async function toggleActive(userId: string, active: boolean) {
     await fetch('/api/admin/users', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, active: !active, adminId: session!.id }) })
@@ -81,7 +93,12 @@ export default function AdminUsuariosPage() {
           <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>👥 Gestión de Usuarios</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{users.length} usuarios registrados</div>
         </div>
-        <button onClick={() => setShowNew(true)} style={{ ...btnP, marginLeft: 'auto' }}>+ Nuevo</button>
+        <div style={{ display:'flex', gap:8, marginLeft:'auto' }}>
+          <button onClick={() => router.push('/admin/permisos')} style={{ ...btnG }}>
+            🛡️ Permisos
+          </button>
+          <button onClick={() => setShowNew(true)} style={btnP}>+ Nuevo</button>
+        </div>
       </div>
       {msg && (
         <div style={{ background: msg.includes('Error') || msg.includes('obligatorio') ? '#fee2e2' : '#d1fae5',
@@ -127,8 +144,23 @@ export default function AdminUsuariosPage() {
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{u.username}</div>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 700, background: (badge?.color || '#888') + '22', color: badge?.color || '#888', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' as const }}>
-                  {badge?.label?.toUpperCase() || u.role.toUpperCase()}</span>
+                {editingRoleId === u.id ? (
+                  <select
+                    value={u.role}
+                    autoFocus
+                    onChange={e => changeRole(u.id, e.target.value)}
+                    onBlur={() => setEditingRoleId(null)}
+                    style={{ fontSize: 12, borderRadius: 6, border: '1px solid var(--accent)', background: 'var(--surface2)', color: 'var(--text)', padding: '3px 6px' }}>
+                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                ) : (
+                  <span
+                    onClick={() => setEditingRoleId(u.id)}
+                    title="Pulsa para cambiar rol"
+                    style={{ fontSize: 10, fontWeight: 700, background: (badge?.color || '#888') + '22', color: badge?.color || '#888', borderRadius: 6, padding: '3px 7px', whiteSpace: 'nowrap' as const, cursor: 'pointer' }}>
+                    {badge?.label?.toUpperCase() || u.role.toUpperCase()} ✎
+                  </span>
+                )}
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button onClick={() => { setResetUserId(isResetting ? null : u.id); setResetPass('') }} style={btnG}>🔑</button>
                   <button onClick={() => toggleActive(u.id, u.active)} style={u.active ? btnD : { ...btnG, background: '#059669', color: 'white', border: 'none' }}>
