@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, type TrainingFile } from '@/lib/supabase'
-import { usePermissions } from '@/hooks/usePermissions'
+import { canEdit as getCanEdit } from '@/lib/permissions'
 import BottomNav from '@/components/BottomNav'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -12,8 +12,7 @@ const CATEGORIES = ['Físico', 'Técnico', 'Táctico', 'Porteros', 'Psicológico
 export default function BibliotecaPage() {
   const router  = useRouter()
   const session = getSession()
-  const { canEdit: permCanEdit } = usePermissions()
-  const canEdit = permCanEdit('biblioteca')
+  const canEdit = getCanEdit(session?.role || '', 'biblioteca')
 
   const [files, setFiles]         = useState<TrainingFile[]>([])
   const [loading, setLoading]     = useState(true)
