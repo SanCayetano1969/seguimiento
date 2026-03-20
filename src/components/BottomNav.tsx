@@ -118,11 +118,8 @@ export default function BottomNav({ role, unreadMessages = 0, pendingRequests = 
     { icon: <IconMoney />,    label: 'Tesorería', route: '/tesoreria',   show: cv('tesoreria') },
   ]
 
-  useEffect(() => { setMounted(true) }, [])
-  if (!mounted) return null
-
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav" suppressHydrationWarning>
       {items.filter(i => i.show).map(item => (
         <button
           key={item.route}
