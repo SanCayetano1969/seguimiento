@@ -42,10 +42,13 @@ export async function POST(req: NextRequest) {
 // PATCH - activar/desactivar usuario
 export async function PATCH(req: NextRequest) {
   try {
-    const { adminId, userId, active } = await req.json()
+    const { adminId, userId, active, role } = await req.json()
     const { data: admin } = await supabase.from('app_users').select('role').eq('id', adminId).single()
     if (admin?.role !== 'admin') return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
-    await supabase.from('app_users').update({ active }).eq('id', userId)
+    const updates: any = {}
+    if (active !== undefined) updates.active = active
+    if (role !== undefined) updates.role = role
+    if (Object.keys(updates).length > 0) await supabase.from('app_users').update(updates).eq('id', userId)
     return NextResponse.json({ ok: true })
   } catch(e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
