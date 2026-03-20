@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
+import { usePermissions } from '@/hooks/usePermissions'
 import ExportMenu from '@/components/ExportMenu'
 
 const TEMPORADA = '2025-26'
@@ -12,6 +13,8 @@ const ROLES_PERMITIDOS = ['admin', 'coordinator', 'secretario', 'ejecutivo']
 export default function TesoreriaPage() {
   const router = useRouter()
   const [session, setSession] = useState<any>(null)
+  const { canEdit: permCanEdit } = usePermissions()
+  const canEditTeso = permCanEdit('tesoreria')
   const [tab, setTab] = useState<'fichas'|'patrocinadores'|'torneos'>('fichas')
   const [teams, setTeams] = useState<any[]>([])
   const [teamFees, setTeamFees] = useState<Record<string,number>>({})
@@ -351,7 +354,7 @@ export default function TesoreriaPage() {
                         extraLabel="Con detalle de pagos"
                       />
                     </div>
-                    {session.role === 'admin' && (
+                    {canEditTeso && (
                       <button onClick={e => { e.stopPropagation(); setEditingFee(team.id); setFeeInput(fee?.toString() || '') }}
                         style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: '1px solid var(--accent)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>
                         {fee ? 'Editar cuota' : 'Fijar cuota'}
@@ -831,7 +834,7 @@ function PlayerPanel({ player, team, temporada, session, teamFee, plan, payments
         temporada,
         num_parcelas: numParcelas,
       }
-      if (session.role === 'admin' && customFee) {
+      if (canEditTeso && customFee) {
         planPayload.importe_personalizado = parseFloat(customFee)
         planPayload.nota_cuota = notaCuota
       }
@@ -912,7 +915,7 @@ function PlayerPanel({ player, team, temporada, session, teamFee, plan, payments
       </div>
 
       {/* Cuota personalizada (solo admin) */}
-      {session.role === 'admin' && (
+      {canEditTeso && (
         <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '12px 16px', marginBottom: 14, border: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: editingCustomFee ? 10 : 0 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Cuota personalizada</span>
