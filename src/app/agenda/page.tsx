@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, getSession, canEditAgenda, type Event, type Team } from '@/lib/supabase'
+import { supabase, getSession, type Event, type Team } from '@/lib/supabase'
+import { canEdit as getCanEdit } from '@/lib/permissions'
 import BottomNav from '@/components/BottomNav'
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday, addDays, addWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -26,7 +27,6 @@ export default function AgendaPage() {
 
   const router = useRouter()
   const session = getSession()
-  const { canEdit: permCanEdit } = usePermissions()
 
   const [events, setEvents]   = useState<Event[]>([])
   const [teams, setTeams]     = useState<Team[]>([])
@@ -56,7 +56,7 @@ export default function AgendaPage() {
     loadData()
   }
 
-  const canEdit = permCanEdit('agenda')
+  const canEdit = getCanEdit(session?.role || '', 'agenda')
 
   useEffect(() => {
     if (!session) { router.push('/'); return }
