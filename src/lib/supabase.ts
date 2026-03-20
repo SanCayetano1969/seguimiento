@@ -175,18 +175,22 @@ export type TrainingFile = {
 
 export function getSession() {
   if (typeof window === 'undefined') return null
-  const raw = sessionStorage.getItem('sc_user')
+  const raw = sessionStorage.getItem('sc_user') || localStorage.getItem('sc_session')
   if (!raw) return null
   try { return JSON.parse(raw) as AppUser & { team_ids?: string[] } }
   catch { return null }
 }
 
 export function setSession(user: AppUser, team_ids?: string[]) {
-  sessionStorage.setItem('sc_user', JSON.stringify({ ...user, team_ids }))
+  const sessionData = JSON.stringify({ ...user, team_ids })
+  sessionStorage.setItem('sc_user', sessionData)
+  localStorage.setItem('sc_session', sessionData)
 }
 
 export function clearSession() {
   sessionStorage.removeItem('sc_user')
+  localStorage.removeItem('sc_session')
+  localStorage.removeItem('sc_access_code')
 }
 
 // ─── PERMISOS ────────────────────────────────────────────────
