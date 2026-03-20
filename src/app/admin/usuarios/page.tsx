@@ -165,6 +165,10 @@ export default function AdminUsuariosPage() {
                   <button onClick={() => { setResetUserId(isResetting ? null : u.id); setResetPass('') }} style={btnG}>🔑</button>
                   <button onClick={() => toggleActive(u.id, u.active)} style={u.active ? btnD : { ...btnG, background: '#059669', color: 'white', border: 'none' }}>
                     {u.active ? '🚫' : '✅'}</button>
+                  <button onClick={() => router.push('/admin/usuarios/'+u.id+'/permisos')}
+                    style={{ ...btnG, padding: '6px 8px', fontSize: 11 }} title="Gestionar permisos">
+                    🛡️
+                  </button>
                 </div>
               </div>
               {isResetting && (
