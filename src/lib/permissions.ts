@@ -17,7 +17,7 @@ export type Role = 'admin' | 'coordinator' | 'secretario' | 'ejecutivo' | 'coach
 // [can_view, can_edit]
 type PermMatrix = Record<Module, [boolean, boolean]>
 
-const ROLE_PERMISSIONS: Record<Role, PermMatrix> = {
+export const ROLE_PERMISSIONS: Record<Role, PermMatrix> = {
   admin: {
     club:       [true, true],
     agenda:     [true, true],
