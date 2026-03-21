@@ -281,6 +281,45 @@ export default function Convocatorias({ team, players, matches }: Props) {
           </div>
         </div>
       )}
+
+      {/* Modal confirmación reemplazar convocatoria */}
+      {confirmReplace && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '0 20px'
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 14,
+            padding: '28px 24px', maxWidth: 340, width: '100%',
+            border: '1px solid var(--border)', textAlign: 'center' as const
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
+              Convocatoria ya existe
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
+              Ya existe una convocatoria para esta jornada. ¿Deseas reemplazarla?
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className='btn btn-ghost'
+                style={{ flex: 1 }}
+                onClick={() => setConfirmReplace(null)}>
+                Cancelar
+              </button>
+              <button
+                className='btn btn-gold'
+                style={{ flex: 1 }}
+                disabled={saving}
+                onClick={() => guardar(true)}>
+                {saving ? 'Reemplazando...' : 'Reemplazar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
