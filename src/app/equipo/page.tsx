@@ -231,6 +231,14 @@ function EquipoContent() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [team, setTeam] = useState<any>(null)
+  const periodoMinutos: number[] = (() => {
+    const nm = (team?.name || '').toLowerCase()
+    if (nm.includes('prebenjam')) return [10,20,30,40]
+    if (nm.includes('benjam')) return [12,24,36,48]
+    if (nm.includes('alev')) return [15,30,45,60]
+    if (nm.includes('infant')) return [18,36,54,72]
+    return []
+  })()
   const [players, setPlayers] = useState<any[]>([])
   const [jornadas, setJornadas] = useState<any[]>([])
   const [selected, setSelected] = useState<any>(null)
