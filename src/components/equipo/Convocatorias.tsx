@@ -26,6 +26,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
   })
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [confirmReplace, setConfirmReplace] = useState<string|null>(null)
 
   useEffect(() => {
     supabase.from('convocatorias')
@@ -41,8 +42,29 @@ export default function Convocatorias({ team, players, matches }: Props) {
     setShowForm(true)
   }
 
+  async function checkAndGuardar() {
+    if (!form.jornada_id) return
+    setSaving(true)
+    const { data: existing } = await supabase
+      .from('convocatorias')
+      .select('id, jornada_numero')
+      .eq('team_id', team.id)
+      .eq('jornada_id', form.jornada_id)
+      .maybeSingle()
+    setSaving(false)
+    if (existing) {
+      setConfirmReplace(existing.id)
+      return
+    }
+    await guardar()
+  }
+
   async function guardar() {
     setSaving(true)
+    if (confirmReplace) {
+      await supabase.from('convocatorias').delete().eq('id', confirmReplace)
+      setConfirmReplace(null)
+    }
     const selectedMatch = matches.find((m: any) => m.id === form.jornada_id)
     const { data: conv } = await supabase.from('convocatorias').insert({
       team_id: team.id,
@@ -274,7 +296,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <button className='btn btn-ghost' style={{ flex: 1 }} onClick={() => setShowForm(false)}>Cancelar</button>
-              <button className='btn btn-gold' style={{ flex: 1 }} onClick={guardar} disabled={saving}>
+              <button className='btn btn-gold' style={{ flex: 1 }} onClick={checkAndGuardar} disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar convocatoria'}
               </button>
             </div>
@@ -313,7 +335,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
                 className='btn btn-gold'
                 style={{ flex: 1 }}
                 disabled={saving}
-                onClick={() => guardar(true)}>
+                onClick={guardar}>
                 {saving ? 'Reemplazando...' : 'Reemplazar'}
               </button>
             </div>
