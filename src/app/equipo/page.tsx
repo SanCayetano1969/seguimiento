@@ -917,26 +917,7 @@ function EquipoContent() {
                 })}
               </div>
             </div>
-            {/* MINUTOS - campo especial por categoria */}
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Minutos jugados</div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, alignItems: 'center' }}>
-                        {periodoMinutos.map((p: number) => (
-                          <button key={p}
-                            className={'btn btn-sm '+(matchForm.minutos === p ? 'btn-gold' : 'btn-ghost')}
-                            onClick={() => setMatchForm((f: any) => ({ ...f, minutos: p }))}>
-                            {p}'
-                          </button>
-                        ))}
-                        <input
-                          type="number" min={0} max={120}
-                          value={matchForm.minutos ?? ''}
-                          onChange={e => setMatchForm((f: any) => ({ ...f, minutos: e.target.value === '' ? 0 : parseInt(e.target.value)||0 }))}
-                          style={{ width: periodoMinutos.length > 0 ? 64 : 100, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13, textAlign: 'center' as const }}
-                          placeholder="min"
-                        />
-                      </div>
-                    </div>
+            </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
                 <label className="label">Minutos</label>
@@ -1079,6 +1060,26 @@ function EquipoContent() {
                       Titular
                     </label>
 
+{/* MINUTOS - campo especial por categoria */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Minutos jugados</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, alignItems: 'center' }}>
+                        {periodoMinutos.map((p: number) => (
+                          <button key={p}
+                            className={'btn btn-sm '+(matchForm.minutos === p ? 'btn-gold' : 'btn-ghost')}
+                            onClick={() => setMatchForm((f: any) => ({ ...f, minutos: p }))}>
+                            {p}'
+                          </button>
+                        ))}
+                        <input
+                          type="number" min={0} max={120}
+                          value={matchForm.minutos ?? ''}
+                          onChange={e => setMatchForm((f: any) => ({ ...f, minutos: e.target.value === '' ? 0 : parseInt(e.target.value)||0 }))}
+                          style={{ width: periodoMinutos.length > 0 ? 64 : 100, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13, textAlign: 'center' as const }}
+                          placeholder="min"
+                        />
+                      </div>
+                    
                     {/* OBLIGATORIOS */}
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Obligatorios</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
