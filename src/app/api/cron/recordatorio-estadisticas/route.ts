@@ -28,7 +28,7 @@ export async function GET() {
           body: JSON.stringify({
             toUserId: coach.id,
             fromName: 'CD San Cayetano',
-            body: '⚽ ¡Recuerda registrar el resultado y las estadísticas del partido de hoy!'
+            body: '⚽ ¡Recuerda registrar el resultado y las estadísticas del partido de este fin de semana!'
           })
         })
         if (res.ok) sent++
