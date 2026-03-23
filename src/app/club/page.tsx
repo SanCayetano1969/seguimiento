@@ -39,6 +39,7 @@ export default function ClubPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [unread, setUnread]     = useState(0)
   const [loading, setLoading]   = useState(true)
+  const [pendingAlarmas, setPendingAlarmas] = useState<{team_id:string, team_name:string, faltaConvoc:boolean, faltaStats:boolean}[]>([])
   const [tab, setTab]           = useState<'overview'|'agenda'|'anuncios'|'informes'>('overview')
   const [showAnnModal, setShowAnnModal] = useState(false)
   const [reports, setReports] = useState<any[]>([])
@@ -84,6 +85,64 @@ export default function ClubPage() {
       const cats = ["Alevin","Infantil","Cadete","Juvenil","Amateur"]
       return cats.indexOf(a.category) - cats.indexOf(b.category) || a.team_name.localeCompare(b.team_name)
     })
+    // ── Alarmas pendientes (a partir del miércoles) ──────────────
+    const hoy = new Date()
+    const diaSemana = hoy.getDay() // 0=dom,1=lun,...,6=sab
+    if (diaSemana >= 3) { // miércoles o posterior
+      // Calcular sábado y domingo del fin de semana pasado
+      const diasHastaLunes = diaSemana === 0 ? 6 : diaSemana - 1
+      const lunesPasado = new Date(hoy); lunesPasado.setDate(hoy.getDate() - diasHastaLunes - 7)
+      const sabPasado = new Date(lunesPasado); sabPasado.setDate(lunesPasado.getDate() + 5)
+      const domPasado = new Date(lunesPasado); domPasado.setDate(lunesPasado.getDate() + 6)
+      const sabStr = sabPasado.toISOString().split('T')[0]
+      const domStr = domPasado.toISOString().split('T')[0]
+
+      // Partidos del fin de semana pasado
+      const { data: matchesFds } = await supabase
+        .from('matches')
+        .select('id, team_id, fecha')
+        .gte('fecha', sabStr)
+        .lte('fecha', domStr)
+
+      if (matchesFds?.length) {
+        const matchIds = matchesFds.map((m: any) => m.id)
+        const teamIds = [...new Set(matchesFds.map((m: any) => m.team_id))]
+
+        // Convocatorias registradas para esos partidos
+        const { data: convocsRegistradas } = await supabase
+          .from('convocatorias')
+          .select('team_id, jornada_id')
+          .in('team_id', teamIds)
+          .gte('fecha', sabStr)
+          .lte('fecha', domStr)
+
+        // Estadísticas de equipo registradas para esos partidos
+        const { data: statsRegistradas } = await supabase
+          .from('match_stats_team')
+          .select('match_id, team_id')
+          .in('match_id', matchIds)
+
+        const convocTeams = new Set((convocsRegistradas || []).map((c: any) => c.team_id))
+        const statsMatchIds = new Set((statsRegistradas || []).map((s: any) => s.match_id))
+
+        const alarmas: {team_id:string, team_name:string, faltaConvoc:boolean, faltaStats:boolean}[] = []
+        for (const match of matchesFds) {
+          const teamInfo = (tData || []).find((t: any) => t.team_id === match.team_id)
+          if (!teamInfo) continue
+          const faltaConvoc = !convocTeams.has(match.team_id)
+          const faltaStats = !statsMatchIds.has(match.id)
+          if (faltaConvoc || faltaStats) {
+            alarmas.push({ team_id: match.team_id, team_name: teamInfo.team_name, faltaConvoc, faltaStats })
+          }
+        }
+        setPendingAlarmas(alarmas)
+      } else {
+        setPendingAlarmas([])
+      }
+    } else {
+      setPendingAlarmas([])
+    }
+
     setTeams(sorted)
     setEvents(evData || [])
     setAnn(annData || [])
@@ -236,6 +295,24 @@ export default function ClubPage() {
               {/* Tabla equipos */}
               <div className="section-title">Equipos</div>
               <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+                {/* ── Alarmas pendientes fin de semana ── */}
+                {pendingAlarmas.length > 0 && (
+                  <div style={{ marginBottom: 16, background: 'rgba(255,160,0,0.08)', border: '1px solid var(--orange)', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--orange)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      ⚠️ Pendiente del fin de semana anterior
+                    </div>
+                    {pendingAlarmas.map(a => (
+                      <div key={a.team_id} style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4, display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600 }}>{a.team_name}:</span>
+                        {a.faltaConvoc && <span style={{ color: 'var(--orange)' }}>sin convocatoria</span>}
+                        {a.faltaConvoc && a.faltaStats && <span style={{ color: 'var(--text-muted)' }}>·</span>}
+                        {a.faltaStats && <span style={{ color: 'var(--orange)' }}>sin estadísticas</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {teams.map((t, i) => (
                   <button
                     key={t.team_id}
