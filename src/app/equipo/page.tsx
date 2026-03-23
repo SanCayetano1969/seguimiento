@@ -270,15 +270,7 @@ function EquipoContent() {
   const [matchStats, setMatchStats] = useState<any[]>([])
   const [selectedMatch, setSelectedMatch] = useState<string>('')
   const [matchForm, setMatchForm] = useState<any>({})
-  const periodoMinutos: number[] = (() => {
-    const nm = (team?.name || '').toLowerCase()
-    if (nm.includes('prebenjam')) return [10,20,30,40]
-    if (nm.includes('benjam')) return [12,24,36,48]
-    if (nm.includes('alev')) return [15,30,45,60]
-    if (nm.includes('infant')) return [18,36,54,72]
-    return []
-  })()
-  const [savingMatch, setSavingMatch] = useState(false)
+    const [savingMatch, setSavingMatch] = useState(false)
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
