@@ -238,7 +238,7 @@ function EquipoContent() {
     if (nm.includes('benjam')) return [12,24,36,48]
     if (nm.includes('alev')) return [15,30,45,60]
     if (nm.includes('infant')) return [18,36,54,72]
-    return []
+    return [] as number[]
   }, [team?.name])
   const [players, setPlayers] = useState<any[]>([])
   const [jornadas, setJornadas] = useState<any[]>([])
@@ -271,7 +271,7 @@ function EquipoContent() {
   const [matchStats, setMatchStats] = useState<any[]>([])
   const [selectedMatch, setSelectedMatch] = useState<string>('')
   const [matchForm, setMatchForm] = useState<any>({})
-    const [savingMatch, setSavingMatch] = useState(false)
+  const [savingMatch, setSavingMatch] = useState(false)
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
@@ -917,8 +917,7 @@ function EquipoContent() {
                 })}
               </div>
             </div>
-            </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
                 <label className="label">Minutos</label>
                 <input type="number" className="input" placeholder="90" value={evalForm.minutos ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, minutos: e.target.value ? +e.target.value : null }))} />
@@ -1060,7 +1059,7 @@ function EquipoContent() {
                       Titular
                     </label>
 
-{/* MINUTOS - campo especial por categoria */}
+                    {/* MINUTOS */}
                     <div style={{ marginBottom: 16 }}>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Minutos jugados</div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, alignItems: 'center' }}>
@@ -1080,7 +1079,6 @@ function EquipoContent() {
                         />
                       </div>
                     </div>
-
                     {/* OBLIGATORIOS */}
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Obligatorios</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -1520,4 +1518,3 @@ export default function EquipoPage() {
     </Suspense>
   )
 }
-
