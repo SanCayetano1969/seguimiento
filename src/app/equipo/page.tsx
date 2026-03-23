@@ -1079,7 +1079,8 @@ function EquipoContent() {
                           placeholder="min"
                         />
                       </div>
-                    
+                    </div>
+
                     {/* OBLIGATORIOS */}
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Obligatorios</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
