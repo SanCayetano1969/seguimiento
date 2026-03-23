@@ -145,6 +145,17 @@ export async function GET(req: Request) {
       }
     })
 
+    // Sesiones psicólogo del mes
+    const inicioMes = new Date(anno, mes - 1, 1).toISOString().split('T')[0]
+    const finMes = new Date(anno, mes, 0).toISOString().split('T')[0]
+    const { data: psicoSesiones } = await supabase
+      .from('psych_sessions')
+      .select('session_date, player_id, players(name)')
+      .in('player_id', playerIds)
+      .gte('session_date', inicioMes)
+      .lte('session_date', finMes)
+      .order('session_date')
+
     const informe = {
       team_id: team.id,
       team_name: team.name,
@@ -153,6 +164,11 @@ export async function GET(req: Request) {
       temporada,
       partidos_mes: partidosMes,
       jugadores,
+      psico_sesiones: (psicoSesiones || []).map((s: any) => ({
+        player_id: s.player_id,
+        nombre: (s.players as any)?.name || '',
+        fecha: s.session_date,
+      })),
     }
 
     // Guardar en Supabase
