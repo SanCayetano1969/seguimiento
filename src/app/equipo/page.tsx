@@ -908,7 +908,48 @@ function EquipoContent() {
                 })}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {/* MINUTOS - campo especial por categoria */}
+                    {(() => {
+                      const nm = (team?.name||'').toLowerCase()
+                      let periodos: number[]
+                      if (nm.includes('prebenjam')) periodos = [10,20,30,40]
+                      else if (nm.includes('benjam')) periodos = [12,24,36,48]
+                      else if (nm.includes('alev')) periodos = [15,30,45,60]
+                      else if (nm.includes('infant')) periodos = [18,36,54,72]
+                      else periodos = [] // cadete, juvenil, amateur → input libre
+                      return (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>Minutos jugados</div>
+                          {periodos.length > 0 ? (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const, alignItems: 'center' }}>
+                              {periodos.map(p => (
+                                <button key={p}
+                                  className={'btn btn-sm '+(matchForm.minutos === p ? 'btn-gold' : 'btn-ghost')}
+                                  onClick={() => setMatchForm((f: any) => ({ ...f, minutos: p }))}>
+                                  {p}'
+                                </button>
+                              ))}
+                              <input
+                                type="number" min={0} max={120}
+                                value={matchForm.minutos ?? ''}
+                                onChange={e => setMatchForm((f: any) => ({ ...f, minutos: e.target.value === '' ? 0 : parseInt(e.target.value)||0 }))}
+                                style={{ width: 64, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13, textAlign: 'center' as const }}
+                                placeholder="min"
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="number" min={0} max={120}
+                              value={matchForm.minutos ?? ''}
+                              onChange={e => setMatchForm((f: any) => ({ ...f, minutos: e.target.value === '' ? 0 : parseInt(e.target.value)||0 }))}
+                              style={{ width: 100, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 14, textAlign: 'center' as const }}
+                              placeholder="0-120"
+                            />
+                          )}
+                        </div>
+                      )
+                    })()}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <div>
                 <label className="label">Minutos</label>
                 <input type="number" className="input" placeholder="90" value={evalForm.minutos ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, minutos: e.target.value ? +e.target.value : null }))} />
@@ -1054,7 +1095,6 @@ function EquipoContent() {
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Obligatorios</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
                       {[
-                        { key: 'minutos', label: 'Minutos' },
                         { key: 'goles', label: 'Goles' },
                         { key: 'asistencias', label: 'Asistencias' },
                         { key: 'amarillas', label: 'Amarillas' },
