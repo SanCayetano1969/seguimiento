@@ -629,10 +629,10 @@ function EquipoContent() {
 
     const tabs = [
       { key: 'ficha', label: 'Ficha' },
-      ...(canEdit ? [{ key: 'eval', label: 'Evaluar' }] : []),
-      { key: 'evaluaciones', label: 'Evaluaciones' },
       { key: 'partidos', label: 'Estadísticas' },
       { key: 'informes', label: 'Informes' },
+      ...(canEdit ? [{ key: 'eval', label: 'Evaluar' }] : []),
+      { key: 'evaluaciones', label: 'Evaluaciones' },
       ...(canMeetings ? [{ key: 'reuniones', label: 'Reuniones' }] : []),
       ...(canPsych ? [{ key: 'psico', label: 'Psicologo' }] : []),
     ]
