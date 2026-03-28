@@ -136,6 +136,29 @@ export default function Convocatorias({ team, players, matches }: Props) {
     })
     y += 6
     doc.line(14, y, pw - 14, y); y += 8
+    // ── No disponibles ──────────────────────────────────────────
+    const noDisponibles = (conv.convocatoria_jugadores || []).filter((j: any) => j.estado !== 'convocado')
+    if (noDisponibles.length > 0) {
+      y += 8
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.text('No disponibles', 14, y)
+      y += 6
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      noDisponibles.forEach((j: any) => {
+        const p = j.players
+        const nombre = (p?.dorsal ? '#' + p.dorsal + '  ' : '') + (p?.name || '')
+        const motivo = j.motivo_no_disponible || 'No disponible'
+        const nota = j.nota_castigo ? ' (' + j.nota_castigo + ')' : ''
+        const linea = nombre + '  —  ' + motivo + nota
+        if (y > 270) { doc.addPage(); y = 20 }
+        doc.text(linea, 14, y)
+        y += 6
+      })
+    }
+
+    y += 10
     doc.setFontSize(10)
     doc.text('Firmado por: ' + (team.entrenador_principal || 'El Entrenador Principal'), 14, y)
     doc.save('convocatoria_j' + (conv.jornada_numero || '') + '_' + (team.name || '').replace(/ /g,'_') + '.pdf')
