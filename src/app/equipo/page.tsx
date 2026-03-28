@@ -394,6 +394,15 @@ function EquipoContent() {
     setEditingResult(null)
   }
 
+  async function deleteMatchStat(statId: string) {
+    if (!confirm('¿Eliminar las estadísticas de este partido?')) return
+    await supabase.from('player_match_stats').delete().eq('id', statId)
+    const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', selected!.id)
+    setMatchStats(msData || [])
+    setSelectedMatch('')
+    setMatchForm({})
+  }
+
   async function saveMatchStat() {
     if (!selected || !selectedMatch || !session) return
     setSavingMatch(true)
@@ -1185,6 +1194,12 @@ function EquipoContent() {
                           <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 28 }}>J{m.jornada}</span>
                           <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 80 }}>{rival}</span>
                           <span style={{ color: 'var(--text)' }}><b>{s.minutos}'</b></span>
+                          <button
+                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, padding: '2px 4px', flexShrink: 0 }}
+                            onClick={e => { e.stopPropagation(); deleteMatchStat(s.id) }}
+                            title="Eliminar estadísticas">
+                            🗑️
+                          </button>
                           {s.goles > 0 && <span style={{ color: '#22c55e' }}>⚽ {s.goles}</span>}
                           {s.asistencias > 0 && <span style={{ color: '#3b82f6' }}>🌟 {s.asistencias}</span>}
                           {s.amarillas > 0 && <span>🟨</span>}
