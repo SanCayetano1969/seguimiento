@@ -92,6 +92,27 @@ export default function Convocatorias({ team, players, matches }: Props) {
     setShowForm(false)
   }
 
+  function editarConvocatoria(c: any) {
+    const jugadoresMap: Record<string, {estado: string, motivo: string, nota: string}> = {}
+    ;(c.convocatoria_jugadores || []).forEach((j: any) => {
+      jugadoresMap[j.player_id] = {
+        estado: j.estado || 'convocado',
+        motivo: j.motivo_no_disponible || '',
+        nota: j.nota_castigo || ''
+      }
+    })
+    setForm({
+      jornada_id: c.jornada_id || '',
+      hora: c.hora || '',
+      lugar: c.lugar || '',
+      equipacion: c.equipacion || 'Azul',
+      texto: c.texto || '',
+      jugadores: jugadoresMap
+    })
+    setConfirmReplace(c.id)
+    setShowForm(true)
+  }
+
   async function generarPDF(conv: any) {
     setGenerating(true)
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -211,6 +232,8 @@ export default function Convocatorias({ team, players, matches }: Props) {
                 </div>
                 <button className='btn btn-sm btn-ghost' style={{ fontSize: 11 }}
                   onClick={() => generarPDF(conv)} disabled={generating}>PDF</button>
+                <button className='btn btn-sm btn-ghost' style={{ fontSize: 11, marginLeft: 4 }}
+                  onClick={() => editarConvocatoria(conv)}>✏️</button>
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 {conv.hora && <span>{conv.hora}h </span>}
