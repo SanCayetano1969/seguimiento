@@ -1577,8 +1577,6 @@ function NotesList({ notes, sessionId }: { notes: any[], sessionId: string }) {
         </div>
       ))}
       {notes.length === 0 && <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '16px 0' }}>Sin entradas todavia</div>}
-    </div>
-
       {confirmDeleteStat && (
         <div style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 20px' }}>
           <div style={{ background:'var(--surface)', borderRadius:14, padding:'28px 24px', maxWidth:320, width:'100%', border:'1px solid var(--border)', textAlign:'center' as const }}>
@@ -1592,6 +1590,7 @@ function NotesList({ notes, sessionId }: { notes: any[], sessionId: string }) {
           </div>
         </div>
       )}
+    </div>
   )
 }
 
