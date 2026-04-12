@@ -274,7 +274,6 @@ function EquipoContent() {
   const [selectedMatch, setSelectedMatch] = useState<string>('')
   const [matchForm, setMatchForm] = useState<any>({})
   const [savingMatch, setSavingMatch] = useState(false)
-  const [confirmDeleteStat, setConfirmDeleteStat] = useState<string|null>(null)
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
@@ -395,15 +394,9 @@ function EquipoContent() {
     setEditingResult(null)
   }
 
-  function deleteMatchStat(statId: string) {
-    setConfirmDeleteStat(statId)
-  }
-
-  async function doDeleteMatchStat() {
-    if (!confirmDeleteStat) return
-    const id = confirmDeleteStat
-    setConfirmDeleteStat(null)
-    await supabase.from('player_match_stats').delete().eq('id', id)
+  async function deleteMatchStat(statId: string) {
+    if (!confirm('¿Eliminar las estadísticas de este partido?')) return
+    await supabase.from('player_match_stats').delete().eq('id', statId)
     const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', selected!.id)
     setMatchStats(msData || [])
     setSelectedMatch('')
@@ -1578,19 +1571,6 @@ function NotesList({ notes, sessionId }: { notes: any[], sessionId: string }) {
         </div>
       ))}
       {notes.length === 0 && <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: '16px 0' }}>Sin entradas todavia</div>}
-      {confirmDeleteStat && (
-        <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 20px'}}>
-          <div style={{background:'var(--surface)',borderRadius:14,padding:'28px 24px',maxWidth:320,width:'100%',border:'1px solid var(--border)',textAlign:'center'as const}}>
-            <div style={{fontSize:34,marginBottom:10}}>🗑️</div>
-            <div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:8}}>Eliminar estadísticas</div>
-            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:22}}>¿Seguro que quieres eliminar las estadísticas de este partido?</div>
-            <div style={{display:'flex',gap:10}}>
-              <button className='btn btn-ghost' style={{flex:1}} onClick={()=>setConfirmDeleteStat(null)}>Cancelar</button>
-              <button className='btn' style={{flex:1,background:'var(--red)',color:'white'}} onClick={doDeleteMatchStat}>Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
