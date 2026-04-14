@@ -275,7 +275,6 @@ function EquipoContent() {
   const [selectedMatch, setSelectedMatch] = useState<string>('')
   const [matchForm, setMatchForm] = useState<any>({})
   const [savingMatch, setSavingMatch] = useState(false)
-  const [confirmDeleteStat, setConfirmDeleteStat] = useState<string|null>(null)
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
@@ -397,13 +396,6 @@ function EquipoContent() {
   }
 
   async function deleteMatchStat(statId: string) {
-    console.log('DELETE STAT CALLED: '+statId)
-    setConfirmDeleteStat(statId)
-    console.log('CONFIRM STATE SET')
-  }
-
-  async function execDeleteStat(statId: string) {
-    setConfirmDeleteStat(null)
     await supabase.from('player_match_stats').delete().eq('id', statId)
     const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', selected!.id)
     setMatchStats(msData || [])
@@ -1557,18 +1549,6 @@ function EquipoContent() {
 
       {/* CONVOCATORIAS */}
       {team && <Convocatorias team={team} players={players} matches={matches} />}
-      {confirmDeleteStat && (
-        <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 20px'}}>
-          <div style={{background:'var(--surface)',borderRadius:14,padding:'28px 24px',maxWidth:320,width:'100%',border:'1px solid var(--border)',textAlign:'center' as const}}>
-            <div style={{fontSize:15,fontWeight:700,color:'var(--text)',marginBottom:8}}>Eliminar estadísticas</div>
-            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:22}}>¿Seguro que quieres eliminar las estadísticas de este partido?</div>
-            <div style={{display:'flex',gap:10}}>
-              <button className='btn btn-ghost' style={{flex:1}} onClick={()=>setConfirmDeleteStat(null)}>Cancelar</button>
-              <button className='btn' style={{flex:1,background:'var(--red)',color:'white'}} onClick={()=>execDeleteStat(confirmDeleteStat!)}>Eliminar</button>
-            </div>
-          </div>
-        </div>
-      )}
       <BottomNav role={session.role} />
     </div>
   )
