@@ -397,7 +397,9 @@ function EquipoContent() {
   }
 
   async function deleteMatchStat(statId: string) {
+    console.log('DELETE STAT CALLED: '+statId)
     setConfirmDeleteStat(statId)
+    console.log('CONFIRM STATE SET')
   }
 
   async function execDeleteStat(statId: string) {
