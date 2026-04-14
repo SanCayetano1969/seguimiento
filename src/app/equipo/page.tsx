@@ -1189,14 +1189,19 @@ function EquipoContent() {
                       const rival = m.local ? 'vs ' + m.rival : m.rival + ' vs SC'
                       return (
                         <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 6, fontSize: 13, flexWrap: 'wrap' }}
-                          onClick={() => setSelectedMatch(s.match_id)}
                         >
                           <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 28 }}>J{m.jornada}</span>
                           <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 80 }}>{rival}</span>
                           <span style={{ color: 'var(--text)' }}><b>{s.minutos}'</b></span>
                           <button
                             style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, padding: '2px 4px', flexShrink: 0 }}
-                            onClick={e => { e.stopPropagation(); deleteMatchStat(s.id) }}
+                            onClick={() => setSelectedMatch(s.match_id)}
+                            title="Editar estadísticas">
+                            ✏️
+                          </button>
+                          <button
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, padding: '2px 4px', flexShrink: 0 }}
+                            onClick={() => deleteMatchStat(s.id)}
                             title="Eliminar estadísticas">
                             🗑️
                           </button>
