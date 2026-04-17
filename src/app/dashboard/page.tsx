@@ -50,16 +50,14 @@ export default function DashboardPage() {
       .gte('date', format(today, 'yyyy-MM-dd'))
       .lte('date', format(end, 'yyyy-MM-dd'))
       .order('date').order('time')
-
-    // Filtrar por equipos del usuario (+ eventos globales team_id=null)
     if (teamIds.length > 0) {
       evQuery = evQuery.or(`team_id.in.(${teamIds.join(',')}),team_id.is.null`)
     }
     const { data: evData } = await evQuery
     setEvents(evData || [])
 
-    // Anuncios
-    const { data: pinAnn } = await supabase
+    // Anuncios (lista completa para el tablón)
+    const { data: annData } = await supabase
       .from('announcements')
       .select('*')
       .order('created_at', { ascending: false })
@@ -74,31 +72,28 @@ export default function DashboardPage() {
       .eq('read', false)
     setUnread(count || 0)
 
-    // ── Último anuncio ───────────────────────────────────────────
-    const { data: pinAnn } = await supabase
+    // Último anuncio pinado para portada
+    const { data: topAnn } = await supabase
       .from('announcements')
       .select('id, title, content, created_at')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1)
-    if (pinAnn?.[0]) setLastAnn(pinAnn[0])
+    if (topAnn?.[0]) setLastAnn(topAnn[0])
 
-    // ── Partidos fin de semana ────────────────────────────────────
+    // Partidos fin de semana
     const hoy = new Date()
-    const dow = hoy.getDay() // 0=dom,1=lun,...,6=sab
+    const dow = hoy.getDay()
     const mode = (dow >= 1 && dow <= 3) ? 'results' : 'upcoming'
     setMatchMode(mode)
 
-    // Calcular sábado y domingo del rango
     let sabado: Date, domingo: Date
     if (mode === 'results') {
-      // Sáb-dom PASADO
       const diasHastaLunes = dow === 0 ? 6 : dow - 1
       const lunesPasado = new Date(hoy); lunesPasado.setDate(hoy.getDate() - diasHastaLunes - 7)
       sabado = new Date(lunesPasado); sabado.setDate(lunesPasado.getDate() + 5)
       domingo = new Date(lunesPasado); domingo.setDate(lunesPasado.getDate() + 6)
     } else {
-      // Sáb-dom PRÓXIMO (esta semana)
       const diasHastaLunes = dow === 0 ? 6 : dow - 1
       const lunesEsta = new Date(hoy); lunesEsta.setDate(hoy.getDate() - diasHastaLunes)
       sabado = new Date(lunesEsta); sabado.setDate(lunesEsta.getDate() + 5)
@@ -114,13 +109,10 @@ export default function DashboardPage() {
       .lte('fecha', domStr)
       .order('fecha')
 
-    // Filtrar por equipos del coach si no es admin
     if (wMatches?.length) {
-      const myTeamIds = teamIds
-      const filtered = myTeamIds.length > 0
-        ? wMatches.filter((m: any) => myTeamIds.includes(m.team_id))
+      const filtered = teamIds.length > 0
+        ? wMatches.filter((m: any) => teamIds.includes(m.team_id))
         : wMatches
-      // Para partidos próximos añadir hora de convocatoria
       if (mode === 'upcoming' && filtered.length > 0) {
         const matchIds = filtered.map((m: any) => m.id)
         const { data: convocs } = await supabase
