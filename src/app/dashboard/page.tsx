@@ -34,16 +34,11 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     if (!session) return
     setLoading(true)
-
     const teamIds = session.team_ids || []
-
-    // Cargar equipos del usuario
     if (teamIds.length > 0) {
       const { data } = await supabase.from('teams').select('*').in('id', teamIds)
       setTeams(data || [])
     }
-
-    // Agenda: próximas 5 semanas
     const today = new Date()
     const end = addWeeks(today, 5)
     let evQuery = supabase.from('events')
@@ -56,70 +51,47 @@ export default function DashboardPage() {
     }
     const { data: evData } = await evQuery
     setEvents(evData || [])
-
-    // Anuncios (lista completa para el tablón)
     const { data: annData } = await supabase
-      .from('announcements')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5)
+      .from('announcements').select('*')
+      .order('created_at', { ascending: false }).limit(5)
     setAnn(annData || [])
-
-    // Mensajes no leídos
-    const { count } = await supabase
-      .from('messages')
+    const { count } = await supabase.from('messages')
       .select('*', { count: 'exact', head: true })
-      .eq('to_user_id', session.id)
-      .eq('read', false)
+      .eq('to_user_id', session.id).eq('read', false)
     setUnread(count || 0)
-
-    // Último anuncio pinado para portada
-    const { data: topAnn } = await supabase
-      .from('announcements')
+    const { data: topAnn } = await supabase.from('announcements')
       .select('id, title, content, created_at')
       .order('pinned', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .order('created_at', { ascending: false }).limit(1)
     if (topAnn?.[0]) setLastAnn(topAnn[0])
-
-    // Partidos fin de semana
     const hoy = new Date()
     const dow = hoy.getDay()
     const mode = (dow >= 1 && dow <= 3) ? 'results' : 'upcoming'
     setMatchMode(mode)
-
     let sabado: Date, domingo: Date
     if (mode === 'results') {
-      const diasHastaLunes = dow === 0 ? 6 : dow - 1
-      const lunesPasado = new Date(hoy); lunesPasado.setDate(hoy.getDate() - diasHastaLunes - 7)
-      sabado = new Date(lunesPasado); sabado.setDate(lunesPasado.getDate() + 5)
-      domingo = new Date(lunesPasado); domingo.setDate(lunesPasado.getDate() + 6)
+      const d2l = dow === 0 ? 6 : dow - 1
+      const lp = new Date(hoy); lp.setDate(hoy.getDate() - d2l - 7)
+      sabado = new Date(lp); sabado.setDate(lp.getDate() + 5)
+      domingo = new Date(lp); domingo.setDate(lp.getDate() + 6)
     } else {
-      const diasHastaLunes = dow === 0 ? 6 : dow - 1
-      const lunesEsta = new Date(hoy); lunesEsta.setDate(hoy.getDate() - diasHastaLunes)
-      sabado = new Date(lunesEsta); sabado.setDate(lunesEsta.getDate() + 5)
-      domingo = new Date(lunesEsta); domingo.setDate(lunesEsta.getDate() + 6)
+      const d2l = dow === 0 ? 6 : dow - 1
+      const le = new Date(hoy); le.setDate(hoy.getDate() - d2l)
+      sabado = new Date(le); sabado.setDate(le.getDate() + 5)
+      domingo = new Date(le); domingo.setDate(le.getDate() + 6)
     }
     const sabStr = sabado.toISOString().split('T')[0]
     const domStr = domingo.toISOString().split('T')[0]
-
-    const { data: wMatches } = await supabase
-      .from('matches')
+    const { data: wMatches } = await supabase.from('matches')
       .select('id, team_id, jornada, fecha, rival, local, resultado_propio, resultado_rival, teams(name)')
-      .gte('fecha', sabStr)
-      .lte('fecha', domStr)
-      .order('fecha')
-
+      .gte('fecha', sabStr).lte('fecha', domStr).order('fecha')
     if (wMatches?.length) {
       const filtered = teamIds.length > 0
-        ? wMatches.filter((m: any) => teamIds.includes(m.team_id))
-        : wMatches
+        ? wMatches.filter((m: any) => teamIds.includes(m.team_id)) : wMatches
       if (mode === 'upcoming' && filtered.length > 0) {
         const matchIds = filtered.map((m: any) => m.id)
-        const { data: convocs } = await supabase
-          .from('convocatorias')
-          .select('match_id, hora, lugar')
-          .in('match_id', matchIds)
+        const { data: convocs } = await supabase.from('convocatorias')
+          .select('match_id, hora, lugar').in('match_id', matchIds)
         const convocMap: Record<string, any> = {}
         ;(convocs || []).forEach((c: any) => { convocMap[c.match_id] = c })
         setWeekMatches(filtered.map((m: any) => ({ ...m, convoc: convocMap[m.id] || null })))
@@ -127,7 +99,6 @@ export default function DashboardPage() {
         setWeekMatches(filtered)
       }
     }
-
     setLoading(false)
   }, [session])
 
