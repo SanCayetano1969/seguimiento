@@ -160,18 +160,18 @@ export default function ClubPage() {
     if (topAnn?.[0]) setLastAnn(topAnn[0])
 
     // Partidos fin de semana
-    const hoy = new Date()
-    const dow = hoy.getDay()
+    const fdsHoy = new Date()
+    const dow = fdsHoy.getDay()
     const wMode = (dow >= 1 && dow <= 3) ? 'results' : 'upcoming'
     setMatchMode(wMode)
     const d2l = dow === 0 ? 6 : dow - 1
     let sabW: Date, domW: Date
     if (wMode === 'results') {
-      const lp = new Date(hoy); lp.setDate(hoy.getDate() - d2l - 7)
+      const lp = new Date(fdsHoy); lp.setDate(fdsHoy.getDate() - d2l - 7)
       sabW = new Date(lp); sabW.setDate(lp.getDate() + 5)
       domW = new Date(lp); domW.setDate(lp.getDate() + 6)
     } else {
-      const le = new Date(hoy); le.setDate(hoy.getDate() - d2l)
+      const le = new Date(fdsHoy); le.setDate(fdsHoy.getDate() - d2l)
       sabW = new Date(le); sabW.setDate(le.getDate() + 5)
       domW = new Date(le); domW.setDate(le.getDate() + 6)
     }
