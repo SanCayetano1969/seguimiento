@@ -1,4 +1,5 @@
 'use client'
+// dashboard v2
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, clearSession, roleBadge, type Event, type Announcement, type Team } from '@/lib/supabase'
