@@ -59,7 +59,7 @@ export default function DashboardPage() {
     setEvents(evData || [])
 
     // Anuncios
-    const { data: annData } = await supabase
+    const { data: lastAnnData } = await supabase
       .from('announcements')
       .select('*')
       .order('created_at', { ascending: false })
@@ -81,7 +81,7 @@ export default function DashboardPage() {
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1)
-    if (annData?.[0]) setLastAnn(annData[0])
+    if (lastAnnData?.[0]) setLastAnn(lastAnnData[0])
 
     // ── Partidos fin de semana ────────────────────────────────────
     const hoy = new Date()
