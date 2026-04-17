@@ -11,7 +11,7 @@ const EVENT_ICONS: Record<string, string> = {
   partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌'
 }
 
-export default function DashboardPage() {
+export default function DashboardPageV2() {
   const router = useRouter()
   const session = getSession()
 
