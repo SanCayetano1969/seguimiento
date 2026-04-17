@@ -62,7 +62,6 @@ export default function DashboardPage() {
     const { data: annData } = await supabase
       .from('announcements')
       .select('*')
-      .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(5)
     setAnn(annData || [])
