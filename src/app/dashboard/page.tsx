@@ -251,7 +251,7 @@ export default function DashboardPage() {
                       {matchMode === 'upcoming' && m.convoc?.hora ? ' · ' + m.convoc.hora : ''}
                     </div>
                   </div>
-                  <div style={{ textAlign:'right' as const, flexShrink:0 }}>
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
                     {matchMode === 'results'
                       ? (m.resultado_propio !== null
                           ? <span style={{ fontWeight:800, fontSize:14, color: m.resultado_propio > m.resultado_rival ? 'var(--green)' : m.resultado_propio < m.resultado_rival ? 'var(--red)' : 'var(--text-muted)' }}>{m.resultado_propio}–{m.resultado_rival}</span>
