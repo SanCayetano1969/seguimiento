@@ -20,6 +20,9 @@ export default function DashboardPage() {
   const [unread, setUnread]       = useState(0)
   const [loading, setLoading]     = useState(true)
   const [selectedTeam, setSelected] = useState<string>('all')
+  const [lastAnn, setLastAnn] = useState<any>(null)
+  const [weekMatches, setWeekMatches] = useState<any[]>([])
+  const [matchMode, setMatchMode] = useState<'results'|'upcoming'>('upcoming')
 
   useEffect(() => {
     if (!session) { router.push('/'); return }
@@ -71,6 +74,67 @@ export default function DashboardPage() {
       .eq('to_user_id', session.id)
       .eq('read', false)
     setUnread(count || 0)
+
+    // ── Último anuncio ───────────────────────────────────────────
+    const { data: annData } = await supabase
+      .from('announcements')
+      .select('id, title, content, created_at')
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (annData?.[0]) setLastAnn(annData[0])
+
+    // ── Partidos fin de semana ────────────────────────────────────
+    const hoy = new Date()
+    const dow = hoy.getDay() // 0=dom,1=lun,...,6=sab
+    const mode = (dow >= 1 && dow <= 3) ? 'results' : 'upcoming'
+    setMatchMode(mode)
+
+    // Calcular sábado y domingo del rango
+    let sabado: Date, domingo: Date
+    if (mode === 'results') {
+      // Sáb-dom PASADO
+      const diasHastaLunes = dow === 0 ? 6 : dow - 1
+      const lunesPasado = new Date(hoy); lunesPasado.setDate(hoy.getDate() - diasHastaLunes - 7)
+      sabado = new Date(lunesPasado); sabado.setDate(lunesPasado.getDate() + 5)
+      domingo = new Date(lunesPasado); domingo.setDate(lunesPasado.getDate() + 6)
+    } else {
+      // Sáb-dom PRÓXIMO (esta semana)
+      const diasHastaLunes = dow === 0 ? 6 : dow - 1
+      const lunesEsta = new Date(hoy); lunesEsta.setDate(hoy.getDate() - diasHastaLunes)
+      sabado = new Date(lunesEsta); sabado.setDate(lunesEsta.getDate() + 5)
+      domingo = new Date(lunesEsta); domingo.setDate(lunesEsta.getDate() + 6)
+    }
+    const sabStr = sabado.toISOString().split('T')[0]
+    const domStr = domingo.toISOString().split('T')[0]
+
+    const { data: wMatches } = await supabase
+      .from('matches')
+      .select('id, team_id, jornada, fecha, rival, local, resultado_propio, resultado_rival, teams(name)')
+      .gte('fecha', sabStr)
+      .lte('fecha', domStr)
+      .order('fecha')
+
+    // Filtrar por equipos del coach si no es admin
+    if (wMatches?.length) {
+      const myTeamIds = teamIds
+      const filtered = myTeamIds.length > 0
+        ? wMatches.filter((m: any) => myTeamIds.includes(m.team_id))
+        : wMatches
+      // Para partidos próximos añadir hora de convocatoria
+      if (mode === 'upcoming' && filtered.length > 0) {
+        const matchIds = filtered.map((m: any) => m.id)
+        const { data: convocs } = await supabase
+          .from('convocatorias')
+          .select('match_id, hora, lugar')
+          .in('match_id', matchIds)
+        const convocMap: Record<string, any> = {}
+        ;(convocs || []).forEach((c: any) => { convocMap[c.match_id] = c })
+        setWeekMatches(filtered.map((m: any) => ({ ...m, convoc: convocMap[m.id] || null })))
+      } else {
+        setWeekMatches(filtered)
+      }
+    }
 
     setLoading(false)
   }, [session])
@@ -163,7 +227,46 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* Agenda 5 semanas */}
+          {/* ── Anuncio + Fin de semana ── */}
+      {(lastAnn || weekMatches.length > 0) && (
+        <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:8 }}>
+          {lastAnn && (
+            <div style={{ background:'var(--surface)', borderRadius:12, padding:'12px 14px', border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--gold)', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>📢 Tablon</div>
+              <div style={{ fontWeight:700, fontSize:13, color:'var(--text)', marginBottom:2 }}>{lastAnn.title}</div>
+              <div style={{ fontSize:12, color:'var(--text-muted)', whiteSpace:'pre-line', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' as const, overflow:'hidden' }}>{lastAnn.content}</div>
+            </div>
+          )}
+          {weekMatches.length > 0 && (
+            <div style={{ background:'var(--surface)', borderRadius:12, padding:'12px 14px', border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--accent)', textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>
+                {matchMode === 'results' ? '⚽ Resultados del fin de semana' : '📅 Partidos este fin de semana'}
+              </div>
+              {weekMatches.map((m: any) => (
+                <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:6, marginBottom:6, borderBottom:'1px solid var(--border)' }}>
+                  <div>
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--text)' }}>{(m.teams as any)?.name || '—'}</div>
+                    <div style={{ fontSize:11, color:'var(--text-muted)' }}>
+                      {m.local ? 'vs ' + m.rival : m.rival + ' (fuera)'}
+                      {matchMode === 'upcoming' && m.convoc?.hora ? ' · ' + m.convoc.hora : ''}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:'right' as const, flexShrink:0 }}>
+                    {matchMode === 'results'
+                      ? (m.resultado_propio !== null
+                          ? <span style={{ fontWeight:800, fontSize:14, color: m.resultado_propio > m.resultado_rival ? 'var(--green)' : m.resultado_propio < m.resultado_rival ? 'var(--red)' : 'var(--text-muted)' }}>{m.resultado_propio}–{m.resultado_rival}</span>
+                          : <span style={{ fontSize:11, color:'var(--text-muted)' }}>Sin resultado</span>)
+                      : <span style={{ fontSize:11, color:'var(--text-muted)' }}>{new Date(m.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}</span>
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Agenda 5 semanas */}
           <div className="section-title">📅 Agenda</div>
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {weeks.map((week, wi) => (
