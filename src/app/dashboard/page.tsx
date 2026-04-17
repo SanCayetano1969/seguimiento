@@ -234,7 +234,7 @@ export default function DashboardPage() {
             <div style={{ background:'var(--surface)', borderRadius:12, padding:'12px 14px', border:'1px solid var(--border)' }}>
               <div style={{ fontSize:10, fontWeight:700, color:'var(--gold)', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>📢 Tablon</div>
               <div style={{ fontWeight:700, fontSize:13, color:'var(--text)', marginBottom:2 }}>{lastAnn.title}</div>
-              <div style={{ fontSize:12, color:'var(--text-muted)', whiteSpace:'pre-line', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' as const, overflow:'hidden' }}>{lastAnn.content}</div>
+              <div style={{ fontSize:12, color:'var(--text-muted)', whiteSpace:'pre-line', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{lastAnn.content}</div>
             </div>
           )}
           {weekMatches.length > 0 && (
