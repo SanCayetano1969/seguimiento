@@ -46,6 +46,9 @@ export default function ClubPage() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [reportMsg, setReportMsg] = useState('')
+  const [lastAnn, setLastAnn] = useState<any>(null)
+  const [weekMatches, setWeekMatches] = useState<any[]>([])
+  const [matchMode, setMatchMode] = useState<'results'|'upcoming'>('upcoming')
   const [reportVersion, setReportVersion] = useState(0)
   const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
 
@@ -148,6 +151,48 @@ export default function ClubPage() {
     setAnn(annData || [])
     setRequests(reqData || [])
     setUnread(unreadCount || 0)
+
+    // Último anuncio para portada
+    const { data: topAnn } = await supabase.from('announcements')
+      .select('id, title, content, created_at')
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false }).limit(1)
+    if (topAnn?.[0]) setLastAnn(topAnn[0])
+
+    // Partidos fin de semana
+    const hoy = new Date()
+    const dow = hoy.getDay()
+    const wMode = (dow >= 1 && dow <= 3) ? 'results' : 'upcoming'
+    setMatchMode(wMode)
+    const d2l = dow === 0 ? 6 : dow - 1
+    let sabW: Date, domW: Date
+    if (wMode === 'results') {
+      const lp = new Date(hoy); lp.setDate(hoy.getDate() - d2l - 7)
+      sabW = new Date(lp); sabW.setDate(lp.getDate() + 5)
+      domW = new Date(lp); domW.setDate(lp.getDate() + 6)
+    } else {
+      const le = new Date(hoy); le.setDate(hoy.getDate() - d2l)
+      sabW = new Date(le); sabW.setDate(le.getDate() + 5)
+      domW = new Date(le); domW.setDate(le.getDate() + 6)
+    }
+    const { data: wMatches } = await supabase.from('matches')
+      .select('id, team_id, jornada, fecha, rival, local, resultado_propio, resultado_rival, teams(name)')
+      .gte('fecha', sabW.toISOString().split('T')[0])
+      .lte('fecha', domW.toISOString().split('T')[0])
+      .order('fecha')
+    if (wMatches?.length) {
+      if (wMode === 'upcoming' && wMatches.length > 0) {
+        const mIds = wMatches.map((m: any) => m.id)
+        const { data: convocs } = await supabase.from('convocatorias')
+          .select('match_id, hora').in('match_id', mIds)
+        const cMap: Record<string, any> = {}
+        ;(convocs || []).forEach((c: any) => { cMap[c.match_id] = c })
+        setWeekMatches(wMatches.map((m: any) => ({ ...m, convoc: cMap[m.id] || null })))
+      } else {
+        setWeekMatches(wMatches)
+      }
+    }
+
     setLoading(false)
   }
 
@@ -266,6 +311,44 @@ export default function ClubPage() {
           {/* ─── OVERVIEW ─── */}
           {tab === 'overview' && (
             <>
+              {/* Anuncio + Fin de semana */}
+              {(lastAnn || weekMatches.length > 0) && (
+                <div style={{ display:'flex', flexDirection:'column', gap:10, padding:'12px 16px 0' }}>
+                  {lastAnn && (
+                    <div style={{ background:'var(--surface)', borderRadius:12, padding:'12px 14px', border:'1px solid var(--border)' }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:'var(--gold)', textTransform:'uppercase', letterSpacing:1, marginBottom:4 }}>📢 Tablón</div>
+                      <div style={{ fontWeight:700, fontSize:13, color:'var(--text)', marginBottom:2 }}>{lastAnn.title}</div>
+                      <div style={{ fontSize:12, color:'var(--text-muted)', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{lastAnn.content}</div>
+                    </div>
+                  )}
+                  {weekMatches.length > 0 && (
+                    <div style={{ background:'var(--surface)', borderRadius:12, padding:'12px 14px', border:'1px solid var(--border)' }}>
+                      <div style={{ fontSize:10, fontWeight:700, color:'var(--accent)', textTransform:'uppercase', letterSpacing:1, marginBottom:8 }}>
+                        {matchMode === 'results' ? '⚽ Resultados del fin de semana' : '📅 Partidos este fin de semana'}
+                      </div>
+                      {weekMatches.map((m: any) => (
+                        <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingBottom:6, marginBottom:6, borderBottom:'1px solid var(--border)' }}>
+                          <div>
+                            <div style={{ fontSize:12, fontWeight:700, color:'var(--text)' }}>{(m.teams as any)?.name || '—'}</div>
+                            <div style={{ fontSize:11, color:'var(--text-muted)' }}>
+                              {m.local ? 'vs ' + m.rival : m.rival + ' (fuera)'}
+                              {matchMode === 'upcoming' && m.convoc?.hora ? ' · ' + m.convoc.hora : ''}
+                            </div>
+                          </div>
+                          <div style={{ textAlign:'right', flexShrink:0 }}>
+                            {matchMode === 'results'
+                              ? (m.resultado_propio !== null
+                                  ? <span style={{ fontWeight:800, fontSize:14, color: m.resultado_propio > m.resultado_rival ? 'var(--green)' : m.resultado_propio < m.resultado_rival ? 'var(--red)' : 'var(--text-muted)' }}>{m.resultado_propio}–{m.resultado_rival}</span>
+                                  : <span style={{ fontSize:11, color:'var(--text-muted)' }}>Sin resultado</span>)
+                              : <span style={{ fontSize:11, color:'var(--text-muted)' }}>{new Date(m.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'})}</span>
+                            }
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {/* KPIs */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '16px 16px 0' }}>
                 <div className="card" style={{ textAlign: 'center' }}>
