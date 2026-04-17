@@ -59,7 +59,7 @@ export default function DashboardPage() {
     setEvents(evData || [])
 
     // Anuncios
-    const { data: lastAnnData } = await supabase
+    const { data: pinAnn } = await supabase
       .from('announcements')
       .select('*')
       .order('created_at', { ascending: false })
@@ -75,13 +75,13 @@ export default function DashboardPage() {
     setUnread(count || 0)
 
     // ── Último anuncio ───────────────────────────────────────────
-    const { data: annData } = await supabase
+    const { data: pinAnn } = await supabase
       .from('announcements')
       .select('id, title, content, created_at')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(1)
-    if (lastAnnData?.[0]) setLastAnn(lastAnnData[0])
+    if (pinAnn?.[0]) setLastAnn(pinAnn[0])
 
     // ── Partidos fin de semana ────────────────────────────────────
     const hoy = new Date()
