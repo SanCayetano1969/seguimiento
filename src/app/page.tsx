@@ -88,7 +88,7 @@ export default function LoginPage() {
 
   async function completeLogin(user: any) {
     let team_ids: string[] = []
-    if (user.role === 'coach') {
+    if (user.role === 'coach' || user.role === 'psychologist') {
       const { data: ut } = await supabase.from('user_teams').select('team_id').eq('user_id', user.id)
       team_ids = (ut || []).map((r: any) => r.team_id)
     }
