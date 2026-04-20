@@ -45,6 +45,8 @@ export default function DashboardPageV2() {
       .order('date').order('time')
     if (teamIds.length > 0) {
       evQuery = evQuery.or(`team_id.in.(${teamIds.join(',')}),team_id.is.null`)
+    } else {
+      evQuery = evQuery.is('team_id', null)
     }
     const { data: evData } = await evQuery
     setEvents(evData || [])
@@ -83,8 +85,7 @@ export default function DashboardPageV2() {
       .select('id, team_id, jornada, fecha, rival, local, resultado_propio, resultado_rival, teams(name)')
       .gte('fecha', sabStr).lte('fecha', domStr).order('fecha')
     if (wMatches?.length) {
-      const filtered = teamIds.length > 0
-        ? wMatches.filter((m: any) => teamIds.includes(m.team_id)) : wMatches
+      const filtered = wMatches
       if (mode === 'upcoming' && filtered.length > 0) {
         const matchIds = filtered.map((m: any) => m.id)
         const { data: convocs } = await supabase.from('convocatorias')
