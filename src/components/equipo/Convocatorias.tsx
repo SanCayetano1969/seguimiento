@@ -5,7 +5,7 @@ import jsPDF from 'jspdf'
 
 interface Props { team: any; players: any[]; matches: any[] }
 
-const MOTIVOS = ['Lesión','Enfermedad','Viaje','Ausencia entrenos','Castigo','Decisión Técnica']
+const MOTIVOS = ['Lesión','Enfermedad','Viaje','Ausencia entrenos','Sanción','Castigo','Decisión Técnica']
 const EQUIPACIONES = ['Azul','Roja']
 
 function formatFecha(str: string) {
