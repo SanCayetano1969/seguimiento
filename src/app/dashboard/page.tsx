@@ -21,6 +21,9 @@ export default function DashboardPageV2() {
   const [unread, setUnread]       = useState(0)
   const [loading, setLoading]     = useState(true)
   const [selectedTeam, setSelected] = useState<string>('all')
+  const [lastAnn, setLastAnn] = useState<any>(null)
+  const [weekMatches, setWeekMatches] = useState<any[]>([])
+  const [matchMode, setMatchMode] = useState<'results'|'upcoming'>('upcoming')
 
   useEffect(() => {
     if (!session) { router.push('/'); return }
