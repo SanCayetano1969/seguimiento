@@ -20,6 +20,30 @@ const CRITERIA = {
   tecnica: ['Control','Pase','Regate','Disparo','Cabeza','1vs1'],
   psico: ['Actitud','Concentracion','Confianza','Trabajo en equipo','Gest. del error','Competitividad','Fair Play'],
 }
+
+// Criterios F8 por categoría — escala 1-4
+// 1=Iniciado · 2=En progreso · 3=Bien · 4=Destacado
+const ESCALA_F8 = ['Iniciado','En progreso','Bien','Destacado'] // índice + 1 = valor
+
+const CRITERIA_F8: Record<string, Record<string, string[]>> = {
+  'Prebenjamín': {
+    'Técnicos': ['Control básico del balón','Conducción (llevar el balón)','Pase corto','Golpeo simple / tiro','Regate básico'],
+    'Coordinativos': ['Equilibrio','Coordinación motriz','Orientación espacial'],
+    'Actitud': ['Participación','Atención al entrenador','Trabajo en equipo básico'],
+  },
+  'Benjamín': {
+    'Técnicos': ['Control orientado','Pase corto preciso','Conducción con ambas piernas','Regate en movimiento','Tiro a portería'],
+    'Juego': ['Desmarque simple','Ocupación de espacios','Juego en equipo'],
+    'Defensa': ['Recuperación de balón','Presión básica'],
+    'Mentalidad': ['Esfuerzo','Concentración','Compañerismo'],
+  },
+  'Alevín': {
+    'Técnicos': ['Control orientado','Pase corto y medio','Regate 1 vs 1','Tiro colocado','Conducción en velocidad'],
+    'Tácticos': ['Desmarques','Apoyo al compañero','Toma de decisiones','Cambios de orientación simples'],
+    'Defensivos': ['Marcaje','Recuperación','Coberturas básicas'],
+    'Mental': ['Inteligencia de juego','Competitividad sana','Comunicación'],
+  },
+}
 const TACTICA_POR_POSICION: Record<string, {key:string,label:string,desc:string}[]> = {
   'Portero': [{key:'tac1',label:'Participacion en salida',desc:'Ofrece apoyo a los centrales'},{key:'tac2',label:'Eleccion juego corto/largo',desc:'Decide con criterio si jugar corto o largo'},{key:'tac3',label:'Colocacion para reiniciar',desc:'Se posiciona correctamente para reiniciar el ataque'},{key:'tac4',label:'Colocacion defensiva',desc:'Se adelanta o retrocede segun la linea defensiva'},{key:'tac5',label:'Comunicacion y organizacion',desc:'Dirige y organiza a la defensa'},{key:'tac6',label:'Gestion de centros',desc:'Sale con decision a interceptar centros laterales'}],
   'Defensa Central': [{key:'tac1',label:'Salida de balon',desc:'Conduce o pasa con seguridad'},{key:'tac2',label:'Superioridad en primera linea',desc:'Genera superioridad numerica'},{key:'tac3',label:'Cambio de orientacion',desc:'Cambia el juego al lado contrario'},{key:'tac4',label:'Control de profundidad',desc:'Gestiona la linea defensiva'},{key:'tac5',label:'Juego aereo defensivo',desc:'Gana duelos aereos defensivos'},{key:'tac6',label:'Coordinacion de linea',desc:'Coordina la linea defensiva'}],
