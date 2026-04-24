@@ -643,7 +643,9 @@ function EquipoContent() {
       { area: 'Psicolog.', value: +(evals.reduce((s,e) => s+(e.media_psico||0), 0)/Math.max(evals.length,1)).toFixed(1) },
     ]
     const evoData = [...evals].reverse().map((e, i) => ({ j: `J${i+1}`, Fisica: e.media_fisica, Tecnica: e.media_tecnica, Tactica: e.media_tactica, Psico: e.media_psico }))
-    const scores = [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10]
+    const isF8 = ['Prebenjamín','Benjamín','Alevín'].includes(team?.category || '')
+    const scores = isF8 ? [1,2,3,4] : [1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10]
+    const scoresLabels: Record<number,string> = isF8 ? {1:'1 Iniciado',2:'2 En progreso',3:'3 Bien',4:'4 Destacado'} : {}
 
     const tabs = [
       { key: 'ficha', label: 'Ficha' },
@@ -907,7 +909,36 @@ function EquipoContent() {
             <select className="input" style={{ marginBottom: 16 }} value={selectedWeek} onChange={e => setSelectedWeek(e.target.value)}>
               {getWeekOptions().map(w => <option key={w.date} value={w.date}>{w.label}</option>)}
             </select>
-            {/* Fisica */}
+            {/* F8: criterios por categoría */}
+            {isF8 && (() => {
+              const cat = team?.category || ''
+              const criteriaF8 = CRITERIA_F8[cat] || {}
+              return (
+                <div>
+                  {Object.entries(criteriaF8).map(([grupo, conceptos]) => (
+                    <div key={grupo} style={{ marginBottom: 16 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>{grupo}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        {(conceptos as string[]).map((concepto) => {
+                          const key = concepto.toLowerCase().replace(/[^a-z0-9]/g,'_').substring(0,20)
+                          return (
+                            <div key={key}>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{concepto}</div>
+                              <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
+                                <option value="">—</option>
+                                {scores.map(n => <option key={n} value={n}>{isF8 ? scoresLabels[n] || n : n}</option>)}
+                              </select>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+            {/* Fisica (F11 only) */}
+            {!isF8 && <div>{/* Fisica */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Fisica</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
