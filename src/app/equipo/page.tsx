@@ -910,113 +910,74 @@ function EquipoContent() {
               {getWeekOptions().map(w => <option key={w.date} value={w.date}>{w.label}</option>)}
             </select>
             {/* F8: criterios por categoría */}
-            {isF8 && (() => {
-              const cat = team?.category || ''
-              const criteriaF8 = CRITERIA_F8[cat] || {}
-              return (
-                <div>
-                  {Object.entries(criteriaF8).map(([grupo, conceptos]) => (
-                    <div key={grupo} style={{ marginBottom: 16 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>{grupo}</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        {(conceptos as string[]).map((concepto) => {
-                          const key = concepto.toLowerCase().replace(/[^a-z0-9]/g,'_').substring(0,20)
-                          return (
-                            <div key={key}>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{concepto}</div>
-                              <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
-                                <option value="">—</option>
-                                {scores.map(n => <option key={n} value={n}>{isF8 ? scoresLabels[n] || n : n}</option>)}
-                              </select>
-                            </div>
-                          )
-                        })}
-                      </div>
+            {isF8 ? (
+              <div>
+                {Object.entries(CRITERIA_F8[team?.category || ''] || {}).map(([grupo, conceptos]) => (
+                  <div key={grupo} style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>{grupo}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      {(conceptos as string[]).map((concepto) => {
+                        const key = concepto.toLowerCase().replace(/[^a-z0-9]/g,'_').substring(0,20)
+                        return (
+                          <div key={key}>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{concepto}</div>
+                            <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
+                              <option value="">—</option>
+                              {scores.map(n => <option key={n} value={n}>{scoresLabels[n] || String(n)}</option>)}
+                            </select>
+                          </div>
+                        )
+                      })}
                     </div>
-                  ))}
-                </div>
-              )
-            })()}
-            {!isF8 && (<>
-            {/* Fisica (F11 only) */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Fisica</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {CRITERIA.fisica.map((label, i) => {
-                  const key = ['velocidad','resistencia','fuerza','coordinacion','agilidad','reaccion'][i]
-                  return (
-                    <div key={key}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
-                      <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
-                        <option value="">—</option>
-                        {scores.map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            {/* Tecnica */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Tecnica</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {CRITERIA.tecnica.map((label, i) => {
-                  const key = `tec${i+1}`
-                  return (
-                    <div key={key}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
-                      <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
-                        <option value="">—</option>
-                        {scores.map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            {/* Tactica */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, color: 'var(--gold)' }}>Tactica</div>
-              {selected.position && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic' }}>Criterios para: {selected.position}</div>}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {tacticaCriteria.map(item => (
-                  <div key={item.key} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2 }}>{item.label}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>{item.desc}</div>
-                    <select className="score-input" value={evalForm[item.key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [item.key]: e.target.value ? +e.target.value : null }))}>
-                      <option value="">—</option>
-                      {scores.map(n => <option key={n} value={n}>{n}</option>)}
-                    </select>
                   </div>
                 ))}
               </div>
-            </div>
-            {/* Psicologica */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Psicologica</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {CRITERIA.psico.map((label, i) => {
-                  const key = ['actitud','concentracion','confianza','trabajo_equipo','gestion_error','competitividad','fairplay'][i]
-                  return (
-                    <div key={key}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
-                      <select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}>
-                        <option value="">—</option>
-                        {scores.map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            ) : (
               <div>
-                <label className="label">Minutos</label>
-                <input type="number" className="input" placeholder="90" value={evalForm.minutos ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, minutos: e.target.value ? +e.target.value : null }))} />
+                {/* Física */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Física</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {CRITERIA.fisica.map((label, i) => {
+                      const key = ['velocidad','resistencia','fuerza','coordinacion','agilidad','reaccion'][i]
+                      return (<div key={key}><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div><select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}><option value="">—</option>{scores.map(n => <option key={n} value={n}>{n}</option>)}</select></div>)
+                    })}
+                  </div>
+                </div>
+                {/* Técnica */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Técnica</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {CRITERIA.tecnica.map((label, i) => {
+                      const key = ['control','pase','regate','disparo','cabeza','uno_vs_uno'][i]
+                      return (<div key={key}><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div><select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}><option value="">—</option>{scores.map(n => <option key={n} value={n}>{n}</option>)}</select></div>)
+                    })}
+                  </div>
+                </div>
+                {/* Psicológica */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Psicológica</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {CRITERIA.psico.map((label, i) => {
+                      const key = ['actitud','concentracion','confianza','trabajo_equipo','gestion_error','competitividad','fairplay'][i]
+                      return (<div key={key}><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div><select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}><option value="">—</option>{scores.map(n => <option key={n} value={n}>{n}</option>)}</select></div>)
+                    })}
+                  </div>
+                </div>
+                {/* Táctica — por posición */}
+                {tacticaCriteria.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Táctica ({selected.posicion})</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      {tacticaCriteria.map(({ key, label }) => (
+                        <div key={key}><div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div><select className="score-input" value={evalForm[key] ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, [key]: e.target.value ? +e.target.value : null }))}><option value="">—</option>{scores.map(n => <option key={n} value={n}>{n}</option>)}</select></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            <label className="label">Notas</label>
-            <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={evalForm.notas ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, notas: e.target.value }))} placeholder="Observaciones..." />
+            )}
+            <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={evalForm.notas || ''} onChange={e => setEvalForm((f:any) => ({ ...f, notas: e.target.value }))} placeholder="Observaciones..." />
             </>}
             <button className="btn btn-gold btn-full" onClick={saveEval} disabled={saving}>{saving ? 'Guardando...' : 'Guardar evaluacion'}</button>
           </div>
