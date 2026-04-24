@@ -937,8 +937,8 @@ function EquipoContent() {
                 </div>
               )
             })()}
-            {/* Fisica (F11 only) */}
             {!isF8 && (<>
+            {/* Fisica (F11 only) */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Fisica</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
