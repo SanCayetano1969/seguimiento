@@ -938,7 +938,7 @@ function EquipoContent() {
               )
             })()}
             {/* Fisica (F11 only) */}
-            {!isF8 && <div>{/* Fisica */}
+            {!isF8 && (<>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Fisica</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -1017,6 +1017,7 @@ function EquipoContent() {
             </div>
             <label className="label">Notas</label>
             <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={evalForm.notas ?? ''} onChange={e => setEvalForm((f:any) => ({ ...f, notas: e.target.value }))} placeholder="Observaciones..." />
+            </>}
             <button className="btn btn-gold btn-full" onClick={saveEval} disabled={saving}>{saving ? 'Guardando...' : 'Guardar evaluacion'}</button>
           </div>
         )}
