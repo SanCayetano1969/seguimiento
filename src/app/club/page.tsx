@@ -430,6 +430,11 @@ export default function ClubPage() {
                 const f11Teams = teams.filter((t: any) => !['Prebenjam\u00edn','Benjam\u00edn','Alev\u00edn'].includes(t.category))
                 return (
                   <>
+                    {/* Botón organizar entrenos */}
+                    <button className="btn btn-ghost" style={{ width:'100%', marginBottom:10, justifyContent:'flex-start', gap:8, fontSize:13 }}
+                      onClick={() => router.push('/organizacion-entrenos')}>
+                      🏟️ Organización de Entrenos
+                    </button>
                     {/* Acordeón F8 */}
                     {f8Teams.length > 0 && (
                       <div style={{ marginBottom: 4 }}>
