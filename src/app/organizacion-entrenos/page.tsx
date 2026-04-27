@@ -1,14 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, getSession } from '@/lib/supabase'
+import { supabase, getSession, clearSession } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
 
-type Team = { id: string; name: string; category: string }
 type Slot = { desde: string; hasta: string; zonas: string[] }
-
-const DISPONIBILIDAD: Record<string, Record<number, Slot[]>> = {
-  'SanCa': {
+const DISP: Record<string, Record<number, Slot[]>> = {
+  SanCa: {
     1:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
     2:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
     3:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
@@ -31,164 +29,301 @@ const DISPONIBILIDAD: Record<string, Record<number, Slot[]>> = {
   },
 }
 
+const DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes']
+const FRANJAS: string[] = []
+for (let h = 17; h < 22; h++) {
+  FRANJAS.push(String(h).padStart(2,'0')+':00')
+  FRANJAS.push(String(h).padStart(2,'0')+':30')
+}
+FRANJAS.push('22:00')
+
 function toMin(t: string) { const [h,m]=t.split(':').map(Number); return h*60+m }
 
-function getZonas(campo: string, dow: number, hora: string): string[] {
-  const slots = DISPONIBILIDAD[campo]?.[dow] || []
-  const min = toMin(hora)
-  for (const s of slots) { if (min>=toMin(s.desde) && min<toMin(s.hasta)) return s.zonas }
+function getZonas(recinto: string, dow: number, franja: string): string[] {
+  const slots = DISP[recinto]?.[dow+1] || []
+  const min = toMin(franja)
+  for (const s of slots) {
+    if (min >= toMin(s.desde) && min < toMin(s.hasta)) return s.zonas
+  }
   return []
 }
 
-function teamColor(name: string): string {
-  const n=(name||'').toLowerCase()
-  if(n.includes('prebenjam')) return n.includes(' b')?'#fb923c':'#f97316'
-  if(n.includes('benjam')){if(n.includes(' d'))return'#86efac';if(n.includes(' c'))return'#4ade80';if(n.includes(' b'))return'#22c55e';return'#16a34a'}
-  if(n.includes('alev')){if(n.includes(' f'))return'#7dd3fc';if(n.includes(' e'))return'#38bdf8';if(n.includes(' d'))return'#0ea5e9';if(n.includes(' c'))return'#0284c7';if(n.includes(' b'))return'#0369a1';return'#1e3a8a'}
-  if(n.includes('infantil')){if(n.includes(' c'))return'#c084fc';if(n.includes(' b'))return'#a855f7';return'#7c3aed'}
-  if(n.includes('cadete'))return n.includes(' b')?'#f87171':'#dc2626'
-  if(n.includes('juvenil'))return'#f59e0b'
-  return'#64748b'
+function tColor(name: string) {
+  const n = (name||'').toLowerCase()
+  if (n.includes('prebenjam')) return n.includes(' b') ? '#fb923c' : '#f97316'
+  if (n.includes('benjam')) {
+    if (n.includes(' d')) return '#86efac'
+    if (n.includes(' c')) return '#4ade80'
+    if (n.includes(' b')) return '#22c55e'
+    return '#16a34a'
+  }
+  if (n.includes('alev')) {
+    if (n.includes(' f')) return '#7dd3fc'
+    if (n.includes(' e')) return '#38bdf8'
+    if (n.includes(' d')) return '#0ea5e9'
+    if (n.includes(' c')) return '#0284c7'
+    if (n.includes(' b')) return '#0369a1'
+    return '#075985'
+  }
+  if (n.includes('infantil')) { if (n.includes(' c')) return '#c084fc'; if (n.includes(' b')) return '#a855f7'; return '#9333ea' }
+  if (n.includes('cadete')) return n.includes(' b') ? '#f87171' : '#ef4444'
+  if (n.includes('juvenil')) return '#facc15'
+  if (n.includes('amateur')) return '#a3a3a3'
+  return '#64748b'
 }
 
-const FRANJAS: string[] = []
-for(let h=17;h<22;h++){FRANJAS.push(h+':00');FRANJAS.push(h+':30')}
-FRANJAS.push('22:00')
-const DIAS = ['Lunes','Martes','Mi\u00e9rcoles','Jueves','Viernes']
-const CAMPOS = ['SanCa','Son Moix','San Fernando']
+function getLunes() {
+  const hoy = new Date()
+  const dow = hoy.getDay()
+  const d = new Date(hoy)
+  d.setDate(hoy.getDate() + (dow === 0 ? -6 : 1 - dow))
+  return d
+}
+
+function fechaDia(dowIdx: number) {
+  const l = getLunes()
+  l.setDate(l.getDate() + dowIdx)
+  return l.toISOString().split('T')[0]
+}
+
+const RECINTOS = ['SanCa','Son Moix','San Fernando']
 
 export default function OrganizacionEntrenosPage() {
   const router = useRouter()
-  const session = getSession()
-  const [teams, setTeams] = useState<Team[]>([])
-  const [diaIdx, setDiaIdx] = useState(0)
-  const [hora, setHora] = useState('18:00')
-  const [asig, setAsig] = useState<Record<string,string|null>>({})
+  const [session, setSession] = useState<any>(null)
+  const [teams, setTeams] = useState<any[]>([])
+  const [events, setEvents] = useState<any[]>([])
+  const [dowIdx, setDowIdx] = useState(0)
+  const [franja, setFranja] = useState('18:00')
+  // asignaciones[dowIdx][recinto][zona] = teamId
+  const [asig, setAsig] = useState<Record<number, Record<string, Record<string, string>>>>({})
   const [loading, setLoading] = useState(true)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const dow = diaIdx + 1
 
-  useEffect(()=>{
-    if(!session||!['admin','coordinator'].includes(session.role)){router.push('/dashboard');return}
-    loadTeams()
-  },[])
+  useEffect(() => {
+    const s = getSession()
+    if (!s) { router.replace('/'); return }
+    if (!['admin','coordinator'].includes(s.role)) { router.replace('/dashboard'); return }
+    setSession(s)
+    load()
+  }, [])
 
-  async function loadTeams(){
-    const {data}=await supabase.from('teams').select('id,name,category').order('category').order('name')
-    setTeams(data||[])
+  async function load() {
+    setLoading(true)
+    const { data: t } = await supabase.from('teams').select('id,name,category').order('category').order('name')
+    setTeams(t || [])
+    // Cargar entrenos de la semana actual
+    const lunes = getLunes()
+    const viernes = new Date(lunes); viernes.setDate(lunes.getDate()+4)
+    const { data: ev } = await supabase.from('events')
+      .select('id,team_id,date,time,location,type')
+      .eq('type','entrenamiento')
+      .gte('date', lunes.toISOString().split('T')[0])
+      .lte('date', viernes.toISOString().split('T')[0])
+    setEvents(ev || [])
     setLoading(false)
   }
 
-  useEffect(()=>{ if(!loading) loadSlot(dow,hora) },[dow,hora,loading])
-
-  async function loadSlot(d:number,h:string){
-    const {data}=await supabase.from('field_assignments').select('*').eq('dia',d).eq('hora',h)
-    const map:Record<string,string|null>={}
-    if(data) data.forEach((a:any)=>{map[a.campo+'|'+a.zona]=a.team_id})
-    setAsig(map)
+  function setAsigVal(dow: number, recinto: string, zona: string, teamId: string) {
+    setAsig(prev => ({
+      ...prev,
+      [dow]: { ...(prev[dow]||{}), [recinto]: { ...(prev[dow]?.[recinto]||{}), [zona]: teamId } }
+    }))
   }
 
-  async function handleAsignar(clave:string, teamId:string|null){
-    const [campo,zona]=clave.split('|')
-    setAsig(prev=>({...prev,[clave]:teamId}))
+  // Calcular minutos de entreno por equipo (1 franja = 30 min)
+  function minsDia(teamId: string, dow: number) {
+    const fecha = fechaDia(dow)
+    // De events ya guardados
+    const fromEvents = events.filter(e => e.team_id === teamId && e.date === fecha).length * 30
+    // De asignaciones nuevas (contamos si aparece en alguna franja de ese día)
+    const dayAsig = asig[dow] || {}
+    let fromAsig = 0
+    for (const recinto of RECINTOS) {
+      for (const zona of Object.keys(dayAsig[recinto]||{})) {
+        if (dayAsig[recinto][zona] === teamId) fromAsig += 30
+      }
+    }
+    return fromEvents + fromAsig
+  }
+
+  function minsSem(teamId: string) {
+    return [0,1,2,3,4].reduce((acc, d) => acc + minsDia(teamId, d), 0)
+  }
+
+  async function guardar() {
     setSaving(true)
-    await supabase.from('field_assignments').upsert({dia:dow,hora,campo,zona,team_id:teamId},{onConflict:'dia,hora,campo,zona'})
+    // Para cada día y asignación crear eventos en Supabase
+    const lunes = getLunes()
+    const toCreate: any[] = []
+    for (let d = 0; d < 5; d++) {
+      const fecha = fechaDia(d)
+      const dayAsig = asig[d] || {}
+      for (const recinto of RECINTOS) {
+        const zonas = dayAsig[recinto] || {}
+        for (const [zona, teamId] of Object.entries(zonas)) {
+          if (!teamId) continue
+          // Buscar si ya existe ese entreno para no duplicar
+          const existe = events.find(e => e.team_id === teamId && e.date === fecha && e.location === `${recinto} ${zona}`)
+          if (!existe) {
+            toCreate.push({
+              team_id: teamId,
+              type: 'entrenamiento',
+              title: 'Entreno',
+              date: fecha,
+              time: franja + ':00',
+              location: `${recinto} ${zona}`,
+              created_by: session.id,
+              updated_by: session.id,
+            })
+          }
+        }
+      }
+    }
+    if (toCreate.length > 0) {
+      await supabase.from('events').insert(toCreate)
+    }
     setSaving(false)
+    setShowConfirm(false)
+    router.back()
   }
 
-  const equiposAsignados = Object.entries(asig)
-    .filter(([,tid])=>tid)
-    .map(([clave,tid])=>({clave,team:teams.find(t=>t.id===tid)}))
+  if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}><div className="spinner"/></div>
 
-  if(loading) return <div style={{padding:24,textAlign:'center' as const}}>Cargando...</div>
+  const zonasDisp = {
+    SanCa: getZonas('SanCa', dowIdx, franja),
+    'Son Moix': getZonas('Son Moix', dowIdx, franja),
+    'San Fernando': getZonas('San Fernando', dowIdx, franja),
+  }
 
   return (
-    <div className="page-content" style={{paddingBottom:80}}>
-      <div className="page-header" style={{display:'flex',alignItems:'center',gap:8,padding:'12px 16px'}}>
-        <button className="btn btn-ghost btn-sm" onClick={()=>router.push('/club')}>‹</button>
-        <div>
-          <div style={{fontWeight:700,fontSize:16}}>Organización de Entrenos</div>
-          <div style={{fontSize:11,color:'var(--text-muted)'}}>Asignación de campos por franja horaria</div>
+    <div className="page-content">
+      {/* Modal confirmación guardar */}
+      {showConfirm && (
+        <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,0.7)',display:'flex',alignItems:'center',justifyContent:'center',padding:'0 20px'}}>
+          <div style={{background:'var(--surface)',borderRadius:14,padding:'28px 24px',maxWidth:320,width:'100%',border:'1px solid var(--border)',textAlign:'center'}}>
+            <div style={{fontSize:24,marginBottom:8}}>🏟️</div>
+            <div style={{fontWeight:700,fontSize:15,marginBottom:8}}>¿Todo correcto?</div>
+            <div style={{fontSize:13,color:'var(--text-muted)',marginBottom:20}}>Se programarán los entrenos en la agenda según la organización establecida.</div>
+            <div style={{display:'flex',gap:10}}>
+              <button className="btn btn-ghost" style={{flex:1}} onClick={() => setShowConfirm(false)} disabled={saving}>Cancelar</button>
+              <button className="btn btn-gold" style={{flex:1}} onClick={guardar} disabled={saving}>
+                {saving ? 'Guardando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
         </div>
-        {saving&&<span style={{marginLeft:'auto',fontSize:11,color:'var(--text-muted)'}}>Guardando...</span>}
+      )}
+
+      <div className="page-header" style={{marginBottom:12}}>
+        <button className="btn btn-ghost btn-sm" onClick={() => setShowConfirm(true)}>‹ Salir</button>
+        <div style={{flex:1,textAlign:'center'}}>
+          <div style={{fontWeight:700,fontSize:15}}>Organización Entrenos</div>
+          <div style={{fontSize:11,color:'var(--text-muted)'}}>Semana del {getLunes().toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+        </div>
+        <button className="btn btn-gold btn-sm" onClick={() => setShowConfirm(true)}>Guardar</button>
       </div>
 
-      <div style={{padding:'0 12px 16px'}}>
-        <div style={{display:'flex',gap:8,marginBottom:14}}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:4}}>Día</div>
-            <select className="input" value={diaIdx} onChange={e=>setDiaIdx(+e.target.value)}>
-              {DIAS.map((d,i)=><option key={i} value={i}>{d}</option>)}
-            </select>
-          </div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:4}}>Franja</div>
-            <select className="input" value={hora} onChange={e=>setHora(e.target.value)}>
-              {FRANJAS.map(f=><option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
-        </div>
+      {/* Selector día */}
+      <div style={{display:'flex',gap:4,marginBottom:12,overflowX:'auto'}}>
+        {DIAS.map((d,i) => (
+          <button key={d} onClick={() => setDowIdx(i)}
+            className={'btn btn-sm '+(dowIdx===i ? 'btn-gold' : 'btn-ghost')}
+            style={{flexShrink:0,fontSize:12,padding:'6px 10px'}}>
+            {d.substring(0,3)}
+          </button>
+        ))}
+      </div>
 
-        {/* Tres campos */}
-        <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'flex-start'}}>
-          {CAMPOS.map(campo=>{
-            const zonas=getZonas(campo,dow,hora)
-            const disponible=zonas.length>0
-            return (
-              <div key={campo} style={{flex:1,border:'2px solid '+(disponible?'var(--accent)':'var(--border)'),borderRadius:10,overflow:'hidden',opacity:disponible?1:0.4}}>
-                <div style={{background:disponible?'var(--accent)':'var(--surface)',padding:'7px 10px',fontWeight:700,fontSize:12,color:disponible?'white':'var(--text-muted)',textAlign:'center' as const}}>
-                  {campo}
-                  {!disponible&&<div style={{fontSize:10,fontWeight:400}}>No disponible</div>}
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,padding:6,background:'var(--bg)'}}>
-                  {disponible?zonas.map(zona=>{
-                    const clave=campo+'|'+zona
-                    const tid=asig[clave]||null
-                    const team=teams.find(t=>t.id===tid)
+      {/* Selector franja */}
+      <div style={{marginBottom:14}}>
+        <select className="input" value={franja} onChange={e => setFranja(e.target.value)}>
+          {FRANJAS.slice(0,-1).map((f,i) => (
+            <option key={f} value={f}>{f} – {FRANJAS[i+1]}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Rectángulos recintos */}
+      <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
+        {RECINTOS.map(recinto => {
+          const zonas = zonasDisp[recinto as keyof typeof zonasDisp]
+          const disp = zonas.length > 0
+          return (
+            <div key={recinto} style={{border:'1px solid var(--border)',borderRadius:12,overflow:'hidden'}}>
+              <div style={{background: disp ? 'var(--accent)' : 'var(--surface-2)',padding:'8px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <span style={{fontWeight:700,fontSize:13,color: disp ? 'white' : 'var(--text-muted)'}}>🏟️ {recinto}</span>
+                {!disp && <span style={{fontSize:11,color:'var(--text-muted)'}}>No disponible</span>}
+              </div>
+              {disp ? (
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:1,background:'var(--border)'}}>
+                  {zonas.map(zona => {
+                    const teamId = asig[dowIdx]?.[recinto]?.[zona] || ''
+                    const team = teams.find(t => t.id === teamId)
                     return (
-                      <div key={zona} style={{border:'1px solid '+(team?teamColor(team.name):'var(--border)'),borderRadius:6,padding:'4px 6px',background:team?teamColor(team.name)+'22':'var(--surface)'}}>
-                        <div style={{fontSize:9,color:'var(--text-muted)',marginBottom:3}}>{zona}</div>
-                        <select style={{width:'100%',fontSize:10,padding:'2px 3px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:3,color:'var(--text)'}}
-                          value={tid||''} onChange={e=>handleAsignar(clave,e.target.value||null)}>
-                          <option value="">—</option>
-                          {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                      <div key={zona} style={{background:'var(--surface)',padding:'8px'}}>
+                        <div style={{fontSize:11,color:'var(--text-muted)',marginBottom:5,fontWeight:600}}>{zona}</div>
+                        <select
+                          style={{width:'100%',fontSize:12,padding:'4px 6px',borderRadius:6,
+                            border:'2px solid '+(team ? tColor(team.name) : 'var(--border)'),
+                            background: team ? tColor(team.name)+'22' : 'var(--surface)',
+                            color:'var(--text)'}}
+                          value={teamId}
+                          onChange={e => setAsigVal(dowIdx, recinto, zona, e.target.value)}>
+                          <option value="">— Libre —</option>
+                          {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                         </select>
-                        {team&&<div style={{marginTop:2,fontSize:9,fontWeight:700,color:teamColor(team.name)}}>● {team.name}</div>}
+                        {team && <div style={{marginTop:4,height:3,borderRadius:2,background:tColor(team.name)}}/>}
                       </div>
                     )
-                  }):(
-                    <div style={{gridColumn:'1/-1',textAlign:'center' as const,padding:12,fontSize:11,color:'var(--text-muted)'}}>Sin disponibilidad</div>
-                  )}
+                  })}
                 </div>
+              ) : (
+                <div style={{padding:'14px 12px',textAlign:'center',color:'var(--text-muted)',fontSize:13}}>
+                  Sin franja disponible este día
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Lista equipos con minutos día y semana */}
+      <div style={{marginBottom:80}}>
+        <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:1}}>
+          Minutos de entreno
+        </div>
+        <div style={{border:'1px solid var(--border)',borderRadius:10,overflow:'hidden'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 52px 52px',background:'var(--surface-2)',padding:'6px 10px'}}>
+            <span style={{fontSize:11,fontWeight:600,color:'var(--text-muted)'}}>Equipo</span>
+            <span style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',textAlign:'center'}}>{DIAS[dowIdx].substring(0,3)}</span>
+            <span style={{fontSize:11,fontWeight:600,color:'var(--text-muted)',textAlign:'center'}}>Sem</span>
+          </div>
+          {teams.map((t,i) => {
+            const md = minsDia(t.id, dowIdx)
+            const ms = minsSem(t.id)
+            return (
+              <div key={t.id} style={{display:'grid',gridTemplateColumns:'1fr 52px 52px',
+                padding:'7px 10px',borderTop:'1px solid var(--border)',
+                background: i%2===0 ? 'var(--surface)' : 'transparent'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:tColor(t.name),flexShrink:0}}/>
+                  <span style={{fontSize:12}}>{t.name}</span>
+                </div>
+                <span style={{fontSize:12,textAlign:'center',color: md>0 ? 'var(--green)' : 'var(--text-muted)',fontWeight: md>0 ? 600 : 400}}>
+                  {md > 0 ? md+"'" : '—'}
+                </span>
+                <span style={{fontSize:12,textAlign:'center',color: ms>0 ? 'var(--text)' : 'var(--text-muted)',fontWeight: ms>0 ? 600 : 400}}>
+                  {ms > 0 ? ms+"'" : '—'}
+                </span>
               </div>
             )
           })}
         </div>
-
-        {/* Lista equipos asignados */}
-        {equiposAsignados.length>0?(
-          <div style={{background:'var(--surface)',borderRadius:10,padding:'10px 12px',border:'1px solid var(--border)'}}>
-            <div style={{fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase' as const,letterSpacing:1,marginBottom:8}}>
-              Equipos en {DIAS[diaIdx]} {hora}
-            </div>
-            {[...new Map(equiposAsignados.filter(e=>e.team).map(e=>[e.team!.id,e.team!])).values()].map(t=>(
-              <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--border)'}}>
-                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <div style={{width:8,height:8,borderRadius:'50%',background:teamColor(t.name)}}/>
-                  <span style={{fontSize:12}}>{t.name}</span>
-                </div>
-                <span style={{fontSize:11,color:'var(--text-muted)'}}>30 min</span>
-              </div>
-            ))}
-          </div>
-        ):(
-          <div style={{textAlign:'center' as const,padding:20,color:'var(--text-muted)',fontSize:12}}>
-            No hay equipos asignados en esta franja
-          </div>
-        )}
       </div>
 
-      <BottomNav role={session?.role||'coordinator'}/>
+      <BottomNav role={session?.role} />
     </div>
   )
 }
