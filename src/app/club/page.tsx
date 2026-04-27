@@ -431,7 +431,7 @@ export default function ClubPage() {
                           onClick={() => setShowF8(v => !v)}
                           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', marginBottom: showF8 ? 4 : 0 }}
                         >
-                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>⚽ Fútbol 11 — Infantil · Cadete · Juvenil · Amateur ({f11Teams.length})</span>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>⚽ Fútbol 8 — Prebenjamín · Benjamín · Alevín ({f8Teams.length})</span>
                           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showF8 ? '\u25b2' : '\u25bc'}</span>
                         </button>
                         {showF8 && f8Teams.map((t: any) => (
