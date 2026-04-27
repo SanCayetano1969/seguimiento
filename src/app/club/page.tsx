@@ -450,7 +450,6 @@ export default function ClubPage() {
                         ))}
                       </div>
                     )}
-                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>⚽ Fútbol 11 — Infantil · Cadete · Juvenil · Amateur ({f11Teams.length})</span>
                     {f11Teams.length > 0 && (
                       <div style={{ marginBottom: 4 }}>
                         <button
