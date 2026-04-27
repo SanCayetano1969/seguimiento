@@ -456,7 +456,7 @@ export default function ClubPage() {
                           onClick={() => setShowF11(v => !v)}
                           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', marginBottom: showF11 ? 4 : 0 }}
                         >
-                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>\u26BD F11 — Competici\u00f3n ({f11Teams.length})</span>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>⚽ Fútbol 11 — Infantil · Cadete · Juvenil · Amateur ({f11Teams.length})</span>
                           <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showF11 ? '\u25b2' : '\u25bc'}</span>
                         </button>
                         {showF11 && f11Teams.map((t: any) => (
