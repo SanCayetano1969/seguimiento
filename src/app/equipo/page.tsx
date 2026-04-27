@@ -978,7 +978,6 @@ function EquipoContent() {
               </div>
             )}
             <textarea className="input" rows={2} style={{ marginBottom: 16 }} value={evalForm.notas || ''} onChange={e => setEvalForm((f:any) => ({ ...f, notas: e.target.value }))} placeholder="Observaciones..." />
-            </>}
             <button className="btn btn-gold btn-full" onClick={saveEval} disabled={saving}>{saving ? 'Guardando...' : 'Guardar evaluacion'}</button>
           </div>
         )}
