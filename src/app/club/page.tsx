@@ -18,14 +18,34 @@ type TeamOverview = {
 
 function teamColor(name: string) {
   const n = (name||'').toLowerCase()
-  if (n.includes('infantil a')) return '#3b82f6'
-  if (n.includes('infantil b')) return '#22c55e'
+  // Prebenjamín — gama naranja
+  if (n.includes('prebenjamín a') || n.includes('prebenjamin a')) return '#f97316'
+  if (n.includes('prebenjamín b') || n.includes('prebenjamin b')) return '#fb923c'
+  // Benjamín — gama verde
+  if (n.includes('benjamín a') || n.includes('benjamin a')) return '#16a34a'
+  if (n.includes('benjamín b') || n.includes('benjamin b')) return '#22c55e'
+  if (n.includes('benjamín c') || n.includes('benjamin c')) return '#4ade80'
+  if (n.includes('benjamín d') || n.includes('benjamin d')) return '#86efac'
+  // Alevín — gama azul/cian
+  if (n.includes('alevín a') || n.includes('alevin a')) return '#0369a1'
+  if (n.includes('alevín b') || n.includes('alevin b')) return '#0284c7'
+  if (n.includes('alevín c') || n.includes('alevin c')) return '#0ea5e9'
+  if (n.includes('alevín d') || n.includes('alevin d')) return '#38bdf8'
+  if (n.includes('alevín e') || n.includes('alevin e')) return '#7dd3fc'
+  if (n.includes('alevín f') || n.includes('alevin f')) return '#bae6fd'
+  // Infantil — gama púrpura/violeta
+  if (n.includes('infantil a')) return '#7e22ce'
+  if (n.includes('infantil b')) return '#9333ea'
   if (n.includes('infantil c')) return '#a855f7'
-  if (n.includes('cadete a'))   return '#f97316'
-  if (n.includes('cadete b'))   return '#ec4899'
-  if (n.includes('juvenil'))    return '#eab308'
-  if (n.includes('lev'))        return '#06b6d4'
-  if (n.includes('amateur'))    return '#ef4444'
+  // Cadete — gama rojo
+  if (n.includes('cadete a')) return '#b91c1c'
+  if (n.includes('cadete b')) return '#ef4444'
+  // Juvenil — gama dorado/amarillo
+  if (n.includes('juvenil')) return '#d97706'
+  // Femenino — gama rosa
+  if (n.includes('femenino')) return '#db2777'
+  // Amateur
+  if (n.includes('amateur')) return '#64748b'
   return '#5bb8e8'
 }
 
