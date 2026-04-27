@@ -11,6 +11,65 @@ const EVENT_ICONS: Record<string, string> = { partido: '⚽', entrenamiento: '�
 const EVENT_TYPES = ['partido', 'entrenamiento', 'torneo', 'otro'] as const
 const WEEKDAYS = ['L','M','X','J','V','S','D']
 
+// ── Instalaciones disponibles ────────────────────────────────────────────
+const INSTALACIONES = [
+  'SanCa Norte 1','SanCa Norte 2','SanCa Sur 1','SanCa Sur 2',
+  'Son Moix Norte 1','Son Moix Norte 2','Son Moix Sur 1','Son Moix Sur 2',
+  'San Fernando Norte 1','San Fernando Norte 2','San Fernando Sur 1','San Fernando Sur 2',
+  'Otro'
+]
+
+// Disponibilidad: {dia:[{desde,hasta,zonas}]} — dia 1=Lun..5=Vie
+const DISPONIBILIDAD: Record<string, Record<number, {desde:string, hasta:string, zonas:string[]}[]>> = {
+  'SanCa': {
+    1:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+    2:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+    3:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+    4:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+    5:[{desde:'17:00',hasta:'22:00',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+  },
+  'Son Moix': {
+    1:[{desde:'20:30',hasta:'22:30',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+    2:[{desde:'19:30',hasta:'20:30',zonas:['Norte 1','Norte 2']}],
+    3:[{desde:'20:00',hasta:'22:30',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+    4:[{desde:'19:30',hasta:'20:30',zonas:['Norte 1','Norte 2']}],
+    5:[{desde:'20:00',hasta:'22:30',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+  },
+  'San Fernando': {
+    1:[{desde:'20:30',hasta:'21:30',zonas:['Norte 1','Norte 2']}],
+    2:[],
+    3:[{desde:'17:30',hasta:'19:00',zonas:['Norte 1','Norte 2']}],
+    4:[],
+    5:[{desde:'19:00',hasta:'20:00',zonas:['Norte 1','Norte 2']},{desde:'20:00',hasta:'21:30',zonas:['Norte 1','Norte 2','Sur 1','Sur 2']}],
+  },
+}
+
+function validarInstalacion(instalacion: string, fecha: string, hora: string): string | null {
+  if (!instalacion || instalacion === 'Otro' || !fecha || !hora) return null
+  const d = new Date(fecha + 'T12:00:00')
+  const dow = d.getDay() // 0=dom
+  if (dow === 0 || dow === 6) return null // fines de semana sin restricción aquí
+  let instalKey = ''
+  if (instalacion.startsWith('SanCa')) instalKey = 'SanCa'
+  else if (instalacion.startsWith('Son Moix')) instalKey = 'Son Moix'
+  else if (instalacion.startsWith('San Fernando')) instalKey = 'San Fernando'
+  else return null
+  const slots = DISPONIBILIDAD[instalKey]?.[dow] || []
+  if (slots.length === 0) return `${instalKey} no disponible ese día`
+  const zona = instalacion.replace(instalKey + ' ', '')
+  const [hh, mm] = hora.split(':').map(Number)
+  const minutos = hh * 60 + mm
+  for (const slot of slots) {
+    const [dh, dm] = slot.desde.split(':').map(Number)
+    const [fh, fm] = slot.hasta.split(':').map(Number)
+    if (minutos >= dh*60+dm && minutos < fh*60+fm) {
+      if (!slot.zonas.includes(zona)) return `${zona} no disponible en ese horario (solo ${slot.zonas.join(', ')})`
+      return null
+    }
+  }
+  return `${instalKey} no disponible a las ${hora}`
+}
+
 export default function AgendaPage() {
   function teamColor(t?: string): string {
     const n = (t||'').toLowerCase().replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
@@ -319,9 +378,38 @@ export default function AgendaPage() {
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
 
-            <label className="label">Lugar</label>
-            <input className="input" style={{ marginBottom: 12 }} value={form.location || ''}
-              onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Campo, instalacion..." />
+            <label className="label">Instalación</label>
+            <select className="input" style={{ marginBottom: form.location === 'Otro' ? 4 : 12 }}
+              value={form.location || ''} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}>
+              <option value="">-- Selecciona instalación --</option>
+              <optgroup label="San Ca">
+                <option value="SanCa Norte 1">SanCa Norte 1</option>
+                <option value="SanCa Norte 2">SanCa Norte 2</option>
+                <option value="SanCa Sur 1">SanCa Sur 1</option>
+                <option value="SanCa Sur 2">SanCa Sur 2</option>
+              </optgroup>
+              <optgroup label="Son Moix">
+                <option value="Son Moix Norte 1">Son Moix Norte 1</option>
+                <option value="Son Moix Norte 2">Son Moix Norte 2</option>
+                <option value="Son Moix Sur 1">Son Moix Sur 1</option>
+                <option value="Son Moix Sur 2">Son Moix Sur 2</option>
+              </optgroup>
+              <optgroup label="San Fernando">
+                <option value="San Fernando Norte 1">San Fernando Norte 1</option>
+                <option value="San Fernando Norte 2">San Fernando Norte 2</option>
+                <option value="San Fernando Sur 1">San Fernando Sur 1</option>
+                <option value="San Fernando Sur 2">San Fernando Sur 2</option>
+              </optgroup>
+              <option value="Otro">Otro (especificar)</option>
+            </select>
+            {form.location === 'Otro' && (
+              <input className="input" style={{ marginBottom: 12 }} placeholder="Indica el lugar..."
+                value={form.locationOtro || ''} onChange={e => setForm(f => ({ ...f, locationOtro: e.target.value }))} />
+            )}
+            {form.location && form.location !== 'Otro' && form.date && form.time && (() => {
+              const err = validarInstalacion(form.location, form.date, form.time)
+              return err ? <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>⚠️ {err}</div> : null
+            })()}
 
             <label className="label">Notas</label>
             <textarea className="input" rows={2} style={{ marginBottom: 12 }} value={form.notes || ''}
