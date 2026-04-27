@@ -416,28 +416,67 @@ export default function ClubPage() {
                   </div>
                 )}
 
-                {teams.map((t, i) => (
-                  <button
-                    key={t.team_id}
-                    className="card"
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
-                    onClick={() => router.push(`/equipo?team=${t.team_id}`)}
-                  >
-                    <div style={{ width: 4, height: 40, borderRadius: 2, background: teamColor(t.team_name), flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: 'white', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {t.team_name}
+                {/* Equipos F8 */}
+              {(() => {
+                const f8Teams = teams.filter((t: any) => ['Prebenjam\u00edn','Benjam\u00edn','Alev\u00edn'].includes(t.category))
+                const f11Teams = teams.filter((t: any) => !['Prebenjam\u00edn','Benjam\u00edn','Alev\u00edn'].includes(t.category))
+                return (
+                  <>
+                    {/* Acordeón F8 */}
+                    {f8Teams.length > 0 && (
+                      <div style={{ marginBottom: 4 }}>
+                        <button
+                          onClick={() => setShowF8(v => !v)}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', marginBottom: showF8 ? 4 : 0 }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>\u26BD F8 — Formaci\u00f3n ({f8Teams.length})</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showF8 ? '\u25b2' : '\u25bc'}</span>
+                        </button>
+                        {showF8 && f8Teams.map((t: any) => (
+                          <button
+                            key={t.team_id}
+                            className="card"
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                            onClick={() => router.push(`/equipo?team=${t.team_id}`)}
+                          >
+                            <div style={{ width: 4, height: 40, borderRadius: 2, background: teamColor(t.team_name), flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: 'white' }}>{t.team_name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.category}</div>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                        {t.total_players} jugadores · {t.total_evaluations} evaluaciones
+                    )}
+                    {/* Acordeón F11 */}
+                    {f11Teams.length > 0 && (
+                      <div style={{ marginBottom: 4 }}>
+                        <button
+                          onClick={() => setShowF11(v => !v)}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', marginBottom: showF11 ? 4 : 0 }}
+                        >
+                          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>\u26BD F11 — Competici\u00f3n ({f11Teams.length})</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{showF11 ? '\u25b2' : '\u25bc'}</span>
+                        </button>
+                        {showF11 && f11Teams.map((t: any) => (
+                          <button
+                            key={t.team_id}
+                            className="card"
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                            onClick={() => router.push(`/equipo?team=${t.team_id}`)}
+                          >
+                            <div style={{ width: 4, height: 40, borderRadius: 2, background: teamColor(t.team_name), flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: 'white' }}>{t.team_name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.category}</div>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: 18, color: scoreColor(t.avg_global) }}>{t.avg_global?.toFixed(1) || '—'}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>media</div>
-                    </div>
-                  </button>
-                ))}
+                    )}
+                  </>
+                )
+              })()}
               </div>
 
               {/* Solicitudes pendientes */}
