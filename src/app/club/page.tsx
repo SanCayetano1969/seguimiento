@@ -326,6 +326,12 @@ export default function ClubPage() {
         ))}
       </div>
 
+      {/* Botón organización entrenos */}
+      <button className="btn btn-ghost" style={{ width:'100%', marginBottom:12, justifyContent:'flex-start', gap:8 }}
+        onClick={() => router.push('/organizacion-entrenos')}>
+        🏟️ Organización de Entrenos
+      </button>
+
       {loading ? (
         <div className="empty-state"><div className="loader animate-spin" /></div>
       ) : (
