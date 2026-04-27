@@ -59,6 +59,8 @@ export default function ClubPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [unread, setUnread]     = useState(0)
   const [loading, setLoading]   = useState(true)
+  const [showF8, setShowF8]     = useState(true)
+  const [showF11, setShowF11]   = useState(true)
   const [pendingAlarmas, setPendingAlarmas] = useState<{team_id:string, team_name:string, faltaConvoc:boolean, faltaStats:boolean}[]>([])
   const [tab, setTab]           = useState<'overview'|'agenda'|'anuncios'|'informes'>('overview')
   const [showAnnModal, setShowAnnModal] = useState(false)
