@@ -139,6 +139,24 @@ export default function AgendaPage() {
 
   async function saveEvent() {
     if (!form.title || !form.date || !form.type) return
+
+    // Verificar si la instalación ya está ocupada por otro equipo
+    if (form.type === 'entrenamiento' && form.location && form.location !== 'Otro' && form.time) {
+      const { data: ocupado } = await supabase.from('events')
+        .select('id,team_id,teams(name)')
+        .eq('type','entrenamiento')
+        .eq('date', form.date)
+        .eq('time', form.time.length === 5 ? form.time+':00' : form.time)
+        .eq('location', form.location)
+        .neq('team_id', form.team_id || '')
+        .limit(1)
+      if (ocupado && ocupado.length > 0) {
+        const equipo = (ocupado[0] as any).teams?.name || 'otro equipo'
+        alert('⚠️ Instalación ocupada\n\n' + form.location + ' ya está asignada a ' + equipo + ' a esa hora.\n\nPara cambios en la organización de entrenos, ponte en contacto con el coordinador.')
+        return
+      }
+    }
+
     setSaving(true)
 
     const recurrence = form.recurrence || 'none'
