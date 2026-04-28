@@ -81,7 +81,8 @@ export default function AgendaPage() {
     if (n.includes('juvenil'))    return '#eab308'
     if (n.includes('alevin'))     return '#06b6d4'
     if (n.includes('amateur'))    return '#ef4444'
-    return '#888'
+      if (n.includes('femenino')) return '#d946ef'
+  return '#888'
   }
 
   const router = useRouter()
