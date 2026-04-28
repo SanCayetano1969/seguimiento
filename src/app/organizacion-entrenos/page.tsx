@@ -69,6 +69,7 @@ function tColor(name: string) {
   if (n.includes('cadete')) return n.includes(' b') ? '#f87171' : '#ef4444'
   if (n.includes('juvenil')) return '#facc15'
   if (n.includes('amateur')) return '#a3a3a3'
+    if (n.includes('femenino')) return '#d946ef'
   return '#64748b'
 }
 
