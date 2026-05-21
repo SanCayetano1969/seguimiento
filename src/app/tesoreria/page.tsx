@@ -777,6 +777,7 @@ export default function TesoreriaPage() {
 
 // ===================== PANEL JUGADOR =====================
 function PlayerPanel({ player, team, temporada, session, teamFee, plan, payments, onBack }: any) {
+  const canEditTeso = getCanEdit(session?.role || '', 'tesoreria')
   const [numParcelas, setNumParcelas] = useState<number>(plan?.num_parcelas || 1)
   const [customFee, setCustomFee] = useState<string>(plan?.importe_personalizado?.toString() || '')
   const [notaCuota, setNotaCuota] = useState<string>(plan?.nota_cuota || '')
