@@ -6,13 +6,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET - listar usuarios
+// GET - listar usuarios (con nº de dispositivos con notificaciones activas)
 export async function GET() {
   const { data: users } = await supabase
     .from('app_users')
     .select('id, name, username, role, active, must_change_password, password_hash, created_at')
     .order('name')
-  return NextResponse.json({ users: users || [] })
+
+  // Contar suscripciones push por usuario
+  const { data: subs } = await supabase
+    .from('push_subscriptions')
+    .select('user_id')
+  const counts: Record<string, number> = {}
+  ;(subs || []).forEach((s: any) => { counts[s.user_id] = (counts[s.user_id] || 0) + 1 })
+
+  const withCounts = (users || []).map((u: any) => ({ ...u, device_count: counts[u.id] || 0 }))
+  return NextResponse.json({ users: withCounts })
 }
 
 // POST - crear usuario
