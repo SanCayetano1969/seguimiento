@@ -1,8 +1,9 @@
-'use client'
+use client'
 import { useState, useEffect } from 'react'
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
 const VAPID_KEY_STORE = 'sc_vapid_key'
+const DISMISS_STORE = 'sc_push_dismissed'
 
 function urlBase64ToUint8Array(b64: string) {
   const padding = '='.repeat((4 - (b64.length % 4)) % 4)
@@ -22,6 +23,10 @@ function isPWA() {
   )
 }
 
+function isDismissed() {
+  try { return localStorage.getItem(DISMISS_STORE) === '1' } catch { return false }
+}
+
 async function subscribePush(userId: string): Promise<'ok'|'denied'|'no-support'|'error'> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'no-support'
   try {
@@ -30,11 +35,9 @@ async function subscribePush(userId: string): Promise<'ok'|'denied'|'no-support'
     const perm = await Notification.requestPermission()
     if (perm !== 'granted') return 'denied'
 
-    // Obtener suscripcion existente
     let sub = await reg.pushManager.getSubscription()
 
-    // Si la clave VAPID cambio desde la ultima suscripcion (p.ej. rotacion de
-    // claves), la suscripcion vieja ya no sirve: la cancelamos y creamos otra.
+    // Si la clave VAPID cambio (rotacion), la suscripcion vieja ya no sirve.
     const lastKey = (typeof localStorage !== 'undefined') ? localStorage.getItem(VAPID_KEY_STORE) : null
     if (sub && lastKey !== VAPID_PUBLIC) {
       try { await sub.unsubscribe() } catch {}
@@ -48,10 +51,8 @@ async function subscribePush(userId: string): Promise<'ok'|'denied'|'no-support'
       })
     }
 
-    // Recordar con que clave se creo la suscripcion actual
     try { localStorage.setItem(VAPID_KEY_STORE, VAPID_PUBLIC) } catch {}
 
-    // Guardar en BD siempre (renovar por si cambio de dispositivo)
     const res = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,8 +66,9 @@ async function subscribePush(userId: string): Promise<'ok'|'denied'|'no-support'
   }
 }
 
+// Estados que NO pintan nada: 'boot' | 'ok' | 'checking' | 'no-support' | 'denied' | 'hidden'
 export default function PushSubscriber({ userId }: { userId: string }) {
-  const [state, setState] = useState<'idle'|'ok'|'denied'|'checking'|'no-support'|'ios-no-pwa'>('idle')
+  const [state, setState] = useState<'boot'|'ok'|'idle'|'checking'|'no-support'|'denied'|'ios-no-pwa'|'hidden'>('boot')
 
   useEffect(() => {
     if (!userId) return
@@ -74,21 +76,33 @@ export default function PushSubscriber({ userId }: { userId: string }) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setState('no-support'); return
     }
-    // iOS sin instalar como PWA
-    if (isIOS() && !isPWA()) { setState('ios-no-pwa'); return }
+
+    // iOS sin instalar como PWA: mostrar guia (salvo que ya se haya cerrado)
+    if (isIOS() && !isPWA()) { setState(isDismissed() ? 'hidden' : 'ios-no-pwa'); return }
 
     const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default'
 
     if (perm === 'granted') {
-      // Auto-suscribir silenciosamente en cada carga
-      subscribePush(userId).then(r => setState(r === 'ok' ? 'ok' : 'idle'))
+      // Permiso ya concedido: suscribir en silencio, NUNCA mostrar el cartel.
+      subscribePush(userId).then(() => setState('ok'))
     } else if (perm === 'denied') {
-      setState('denied')
+      setState('hidden')
     } else {
-      // default: mostrar banner
-      setState('idle')
+      // 'default': mostrar cartel solo si no se ha cerrado antes en este dispositivo.
+      setState(isDismissed() ? 'hidden' : 'idle')
     }
   }, [userId])
+
+  function dismiss() {
+    try { localStorage.setItem(DISMISS_STORE, '1') } catch {}
+    setState('hidden')
+  }
+
+  const closeBtn = (
+    <button onClick={dismiss} aria-label="Cerrar"
+      style={{ background:'transparent', border:'none', color:'#93c5fd', fontSize:18,
+        fontWeight:700, cursor:'pointer', lineHeight:1, padding:'0 2px', flexShrink:0 }}>×</button>
+  )
 
   // Banner iOS sin PWA
   if (state === 'ios-no-pwa') {
@@ -110,6 +124,7 @@ export default function PushSubscriber({ userId }: { userId: string }) {
               <b style={{ color:'white' }}>3.</b> Abre desde el icono y acepta
             </div>
           </div>
+          {closeBtn}
         </div>
       </div>
     )
@@ -131,27 +146,18 @@ export default function PushSubscriber({ userId }: { userId: string }) {
             </div>
           </div>
           <button
-            onClick={async () => { setState('checking'); const r = await subscribePush(userId); setState(r === 'ok' ? 'ok' : r) }}
+            onClick={async () => { setState('checking'); const r = await subscribePush(userId); setState(r === 'ok' ? 'ok' : 'idle') }}
             style={{ background:'#3b82f6', color:'white', border:'none', borderRadius:8,
               padding:'8px 14px', fontSize:13, fontWeight:800, cursor:'pointer',
               whiteSpace:'nowrap' as const, flexShrink:0 }}>
             Activar
           </button>
+          {closeBtn}
         </div>
       </div>
     )
   }
 
-  if (state === 'checking') {
-    return (
-      <div style={{ position:'fixed', bottom:80, left:12, right:12, zIndex:9990,
-        background:'#1e3a5f', border:'2px solid #3b82f6', borderRadius:12,
-        padding:'12px 16px', fontFamily:'Arial,sans-serif',
-        fontSize:13, color:'#93c5fd', textAlign:'center' as const }}>
-        Activando...
-      </div>
-    )
-  }
-
+  // 'boot' | 'ok' | 'checking' | 'no-support' | 'denied' | 'hidden' -> no se pinta nada
   return null
 }
