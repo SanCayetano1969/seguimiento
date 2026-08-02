@@ -142,7 +142,12 @@ export default function AdminUsuariosPage() {
                     {!u.active && <span style={{ fontSize: 10, background: '#6b7280', color: 'white', borderRadius: 4, padding: '1px 5px' }}>INACTIVO</span>}
                     {needsChange && <span style={{ fontSize: 10, background: '#f59e0b', color: 'white', borderRadius: 4, padding: '1px 5px' }}>⏳ TEMPORAL</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{u.username}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
+                    <span>@{u.username}</span>
+                    {u.device_count > 0
+                      ? <span title="Notificaciones activadas" style={{ color: '#059669', fontWeight: 700 }}>🔔 {u.device_count}</span>
+                      : <span title="Sin notificaciones activadas" style={{ color: '#9ca3af' }}>🔕</span>}
+                  </div>
                 </div>
                 {editingRoleId === u.id ? (
                   <select
