@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+const VAPID_KEY_STORE = 'sc_vapid_key'
 
 function urlBase64ToUint8Array(b64: string) {
   const padding = '='.repeat((4 - (b64.length % 4)) % 4)
@@ -28,14 +29,28 @@ async function subscribePush(userId: string): Promise<'ok'|'denied'|'no-support'
     await navigator.serviceWorker.ready
     const perm = await Notification.requestPermission()
     if (perm !== 'granted') return 'denied'
-    // Obtener o crear suscripcion
+
+    // Obtener suscripcion existente
     let sub = await reg.pushManager.getSubscription()
+
+    // Si la clave VAPID cambio desde la ultima suscripcion (p.ej. rotacion de
+    // claves), la suscripcion vieja ya no sirve: la cancelamos y creamos otra.
+    const lastKey = (typeof localStorage !== 'undefined') ? localStorage.getItem(VAPID_KEY_STORE) : null
+    if (sub && lastKey !== VAPID_PUBLIC) {
+      try { await sub.unsubscribe() } catch {}
+      sub = null
+    }
+
     if (!sub) {
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC)
       })
     }
+
+    // Recordar con que clave se creo la suscripcion actual
+    try { localStorage.setItem(VAPID_KEY_STORE, VAPID_PUBLIC) } catch {}
+
     // Guardar en BD siempre (renovar por si cambio de dispositivo)
     const res = await fetch('/api/push/subscribe', {
       method: 'POST',
