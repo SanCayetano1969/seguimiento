@@ -1,4 +1,4 @@
-use client'
+'use client'
 import { useState, useEffect } from 'react'
 
 const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
