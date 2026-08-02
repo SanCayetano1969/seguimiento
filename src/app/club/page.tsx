@@ -73,6 +73,9 @@ export default function ClubPage() {
   const [matchMode, setMatchMode] = useState<'results'|'upcoming'>('upcoming')
   const [reportVersion, setReportVersion] = useState(0)
   const [annForm, setAnnForm]   = useState({ title: '', content: '', pinned: false })
+  // Buscador de jugadores (solo admin/coordinador, esta pantalla ya está restringida a esos roles)
+  const [pquery, setPQuery]     = useState('')
+  const [allPlayers, setAllPlayers] = useState<any[]>([])
 
   useEffect(() => {
     if (!session) { router.push('/'); return }
@@ -173,6 +176,14 @@ export default function ClubPage() {
     setAnn(annData || [])
     setRequests(reqData || [])
     setUnread(unreadCount || 0)
+
+    // Jugadores activos para el buscador
+    const { data: plData } = await supabase
+      .from('players')
+      .select('id, name, team_id, dorsal')
+      .eq('active', true)
+      .order('name')
+    setAllPlayers(plData || [])
 
     // Último anuncio para portada
     const { data: topAnn } = await supabase.from('announcements')
@@ -291,6 +302,14 @@ export default function ClubPage() {
       .then(({ data }) => { setReports(data || []); setLoadingReports(false) })
   }, [tab, reportVersion])
 
+  // ── Buscador de jugadores ──────────────────────────────────
+  const teamNameMap: Record<string, string> = {}
+  teams.forEach(t => { teamNameMap[t.team_id] = t.team_name })
+    function normName(s: string) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '') }
+  const playerResults = pquery.trim().length >= 2
+    ? allPlayers.filter(p => normName(p.name).includes(normName(pquery.trim()))).slice(0, 15)
+    : []
+
   return (
     <div className="page-content">
       {/* Header */}
@@ -315,6 +334,32 @@ export default function ClubPage() {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Buscador de jugadores */}
+      <div style={{ padding: '12px 16px 0', position: 'relative' }}>
+        <input
+          value={pquery}
+          onChange={e => setPQuery(e.target.value)}
+          placeholder="🔍 Buscar jugador por nombre..."
+          style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' }}
+        />
+        {pquery.trim().length >= 2 && (
+          <div style={{ position: 'absolute', left: 16, right: 16, top: '100%', marginTop: 4, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.35)', zIndex: 60, maxHeight: 320, overflowY: 'auto' }}>
+            {playerResults.length === 0 ? (
+              <div style={{ padding: '12px 14px', color: 'var(--text-muted)', fontSize: 13 }}>Sin resultados</div>
+            ) : playerResults.map(p => (
+              <div key={p.id}
+                onClick={() => { setPQuery(''); router.push('/equipo?team=' + p.team_id + '&player=' + p.id) }}
+                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, color: 'var(--text)', fontWeight: 600 }}>{p.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {teamNameMap[p.team_id] || '—'}{p.dorsal ? ' · #' + p.dorsal : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
