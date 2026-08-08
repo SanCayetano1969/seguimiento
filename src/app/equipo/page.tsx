@@ -1391,7 +1391,12 @@ function EquipoContent() {
           <div style={{ fontWeight: 700, fontSize: 15 }}>{team?.name}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{team?.modalidad} · {players.length} jugadores</div>
         </div>
-        {canEdit && <button className="btn btn-gold btn-sm" onClick={() => setShowAddPlayer(true)}>+ Jugador</button>}
+        {canEdit && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost btn-sm" style={{ fontWeight: 700 }} onClick={() => router.push('/partido?team=' + id)}>▶ Partido en directo</button>
+            <button className="btn btn-gold btn-sm" onClick={() => setShowAddPlayer(true)}>+ Jugador</button>
+          </div>
+        )}
       </div>
 
       {showAddPlayer && (
