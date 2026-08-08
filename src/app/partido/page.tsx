@@ -52,7 +52,11 @@ function PartidoInner() {
 
   // --- creación/selección de partido ---
   const [matchId, setMatchId] = useState<string>('')
-  const [newMatch, setNewMatch] = useState({ rival: '', jornada: '', fecha: '', local: true })
+  const [newMatch, setNewMatch] = useState({ rival: '', jornada: '', fecha: '', local: true, tipo: 'liga' })
+  const TIPOS_PARTIDO = [
+    { v: 'liga', label: 'Liga' }, { v: 'amistoso', label: 'Amistoso' },
+    { v: 'copa', label: 'Copa / Federación' }, { v: 'torneo', label: 'Torneo' }, { v: 'otro', label: 'Otro' },
+  ]
   const [creating, setCreating] = useState(false)
 
   // --- configuración ---
@@ -185,6 +189,7 @@ function PartidoInner() {
     const { data, error } = await supabase.from('matches').insert({
       team_id: teamId,
       rival: newMatch.rival.trim(),
+      tipo: newMatch.tipo || 'liga',
       jornada: newMatch.jornada ? parseInt(newMatch.jornada) : null,
       fecha: newMatch.fecha || null,
       local: newMatch.local,
@@ -368,6 +373,11 @@ function PartidoInner() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
             <input className="input" placeholder="Rival" value={newMatch.rival} onChange={e => setNewMatch(v => ({ ...v, rival: e.target.value }))} style={{ flex: 1, minWidth: 160 }} />
             <input className="input" type="number" placeholder="Jornada" value={newMatch.jornada} onChange={e => setNewMatch(v => ({ ...v, jornada: e.target.value }))} style={{ width: 110 }} />
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+            <select className="input" value={newMatch.tipo} onChange={e => setNewMatch(v => ({ ...v, tipo: e.target.value }))} style={{ flex: 1 }}>
+              {TIPOS_PARTIDO.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+            </select>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
             <input className="input" type="date" value={newMatch.fecha} onChange={e => setNewMatch(v => ({ ...v, fecha: e.target.value }))} style={{ flex: 1 }} />
