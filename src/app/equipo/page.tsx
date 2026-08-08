@@ -360,9 +360,19 @@ function EquipoContent() {
 
   async function savePlayerField(field: string, value: string) {
     if (!selected) return
-    await supabase.from('players').update({ [field]: value || null }).eq('id', selected.id)
-    setSelected((p: any) => ({ ...p, [field]: value || null }))
-    setPlayers(ps => ps.map(p => p.id === selected.id ? { ...p, [field]: value || null } : p))
+    const isNumeric = field === 'dorsal' || field === 'birth_year'
+    let saveVal: any
+    if (value === '' || value == null) {
+      saveVal = null
+    } else if (isNumeric) {
+      const n = parseInt(value, 10)
+      saveVal = Number.isFinite(n) ? n : null
+    } else {
+      saveVal = value
+    }
+    await supabase.from('players').update({ [field]: saveVal }).eq('id', selected.id)
+    setSelected((p: any) => ({ ...p, [field]: saveVal }))
+    setPlayers(ps => ps.map(p => p.id === selected.id ? { ...p, [field]: saveVal } : p))
     setEditingField(null)
   }
 
@@ -751,11 +761,33 @@ function EquipoContent() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>DORSAL</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold)' }}>#{selected.dorsal || '—'}</div>
+                  {editingField === 'dorsal' ? (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input className="input" type="number" min={0} max={999} style={{ flex: 1 }} value={editValue} onChange={e => setEditValue(e.target.value)} />
+                      <button className="btn btn-gold btn-sm" onClick={() => savePlayerField('dorsal', editValue)}>✓</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditingField(null)}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold)' }}>#{selected.dorsal || '—'}</span>
+                      {canEdit && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => { setEditingField('dorsal'); setEditValue(selected.dorsal != null ? String(selected.dorsal) : '') }}>Editar</button>}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>AÑO NAC.</div>
-                  <div style={{ fontSize: 22, fontWeight: 800 }}>{selected.birth_year || '—'}</div>
+                  {editingField === 'birth_year' ? (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input className="input" type="number" min={1990} max={2030} placeholder="2012" style={{ flex: 1 }} value={editValue} onChange={e => setEditValue(e.target.value)} />
+                      <button className="btn btn-gold btn-sm" onClick={() => savePlayerField('birth_year', editValue)}>✓</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditingField(null)}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 22, fontWeight: 800 }}>{selected.birth_year || '—'}</span>
+                      {canEdit && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={() => { setEditingField('birth_year'); setEditValue(selected.birth_year != null ? String(selected.birth_year) : '') }}>Editar</button>}
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
