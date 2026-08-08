@@ -59,6 +59,17 @@ const TACTICA_POR_POSICION: Record<string, {key:string,label:string,desc:string}
 }
 const TACTICA_GENERICA = [{key:'tac1',label:'Posicionamiento',desc:'Ocupa correctamente los espacios'},{key:'tac2',label:'Presion',desc:'Presiona al poseedor con intensidad'},{key:'tac3',label:'Transicion',desc:'Reacciona rapido al cambio de fase'},{key:'tac4',label:'Juego colectivo',desc:'Contribuye al juego colectivo'}]
 
+// Tipos de partido. Solo 'liga' cuenta para la clasificación; el resto guarda estadísticas igual.
+const TIPOS_PARTIDO: { v: string; label: string; short: string }[] = [
+  { v: 'liga', label: 'Liga', short: 'LIGA' },
+  { v: 'amistoso', label: 'Amistoso', short: 'AMIST' },
+  { v: 'copa', label: 'Copa / Federación', short: 'COPA' },
+  { v: 'torneo', label: 'Torneo', short: 'TORNEO' },
+  { v: 'otro', label: 'Otro', short: 'OTRO' },
+]
+const esLiga = (m: any) => (m?.tipo || 'liga') === 'liga'
+const tipoInfo = (t: string | null | undefined) => TIPOS_PARTIDO.find(x => x.v === (t || 'liga')) || TIPOS_PARTIDO[0]
+
 function getTacticaCriteria(position: string | null | undefined) {
   if (!position) return TACTICA_GENERICA
   return TACTICA_POR_POSICION[position] || TACTICA_GENERICA
@@ -299,6 +310,9 @@ function EquipoContent() {
   const [selectedMatch, setSelectedMatch] = useState<string>('')
   const [matchForm, setMatchForm] = useState<any>({})
   const [savingMatch, setSavingMatch] = useState(false)
+  const [showAddMatch, setShowAddMatch] = useState(false)
+  const [newMatch, setNewMatch] = useState<{rival:string,tipo:string,fecha:string,local:boolean,jornada:string}>({ rival:'', tipo:'liga', fecha:'', local:true, jornada:'' })
+  const [savingNewMatch, setSavingNewMatch] = useState(false)
   const [pdfComment, setPdfComment] = useState('')
   const [pdfObjectives, setPdfObjectives] = useState('')
   const [pdfSelectedEvals, setPdfSelectedEvals] = useState<string[]>([])
@@ -427,6 +441,25 @@ function EquipoContent() {
       ? { ...m, resultado_propio: parseInt(resultForm.propio)||0, resultado_rival: parseInt(resultForm.rival)||0 }
       : m))
     setEditingResult(null)
+  }
+
+  async function saveNewMatch() {
+    if (!newMatch.rival.trim() || !team) return
+    setSavingNewMatch(true)
+    const { data, error } = await supabase.from('matches').insert({
+      team_id: team.id,
+      rival: newMatch.rival.trim(),
+      tipo: newMatch.tipo || 'liga',
+      jornada: newMatch.jornada ? parseInt(newMatch.jornada) : null,
+      fecha: newMatch.fecha || null,
+      local: newMatch.local,
+    }).select().single()
+    setSavingNewMatch(false)
+    if (error || !data) { alert('No se pudo crear el partido'); return }
+    setTeamMatches(ms => [...ms, data].sort((a: any, b: any) => (a.jornada || 999) - (b.jornada || 999)))
+    setMatches(ms => [...ms, data])
+    setShowAddMatch(false)
+    setNewMatch({ rival:'', tipo:'liga', fecha:'', local:true, jornada:'' })
   }
 
 
@@ -1433,7 +1466,7 @@ function EquipoContent() {
       )}
 
       {/* CUERPO TECNICO */}
-      {team && <CabeceraTecnicos team={team} onUpdated={() => loadTeamData(id)} />}
+      {team && <CabeceraTecnicos team={team} onUpdated={() => loadTeamData(team.id)} />}
 
       {/* CALENDARIO */}
       <div style={{ marginBottom: 4 }}>
@@ -1448,6 +1481,7 @@ function EquipoContent() {
           {!showCalendar && teamMatches.length > 0 && (() => {
             let pg=0,pp=0,pe=0,gf=0,gc=0
             teamMatches.forEach((m: any) => {
+              if (!esLiga(m)) return
               if (m.resultado_propio == null) return
               gf += m.resultado_propio; gc += m.resultado_rival
               if (m.resultado_propio > m.resultado_rival) pg++
@@ -1455,9 +1489,9 @@ function EquipoContent() {
               else pe++
             })
             const pts = pg*3+pe
-            const jugados = teamMatches.filter((m: any) => m.resultado_propio != null)
+            const jugados = teamMatches.filter((m: any) => esLiga(m) && m.resultado_propio != null)
             const ultimo = jugados[jugados.length - 1]
-            const proximo = teamMatches.find((m: any) => m.resultado_propio == null)
+            const proximo = teamMatches.find((m: any) => esLiga(m) && m.resultado_propio == null)
             return (
               <div style={{ display:'flex', gap:8, alignItems:'stretch' }}>
                 {/* Clasificación mini */}
@@ -1499,9 +1533,15 @@ function EquipoContent() {
         </button>
         {showCalendar && (
           <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
+            {canEdit && (
+              <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:12 }}>
+                <button className="btn btn-gold btn-sm" onClick={() => { setNewMatch({ rival:'', tipo:'liga', fecha:'', local:true, jornada:'' }); setShowAddMatch(true) }}>+ Partido</button>
+              </div>
+            )}
             {(() => {
               let pg=0,pp=0,pe=0,gf=0,gc=0
               teamMatches.forEach((m: any) => {
+                if (!esLiga(m)) return
                 if (m.resultado_propio == null) return
                 gf += m.resultado_propio; gc += m.resultado_rival
                 if (m.resultado_propio > m.resultado_rival) pg++
@@ -1527,9 +1567,12 @@ function EquipoContent() {
                 const perdido = jugado && m.resultado_propio < m.resultado_rival
                 return (
                   <div key={m.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'var(--surface2)', borderRadius:8, borderLeft:'3px solid '+(jugado?(ganado?'#22c55e':perdido?'#ef4444':'#f59e0b'):'var(--border)') }}>
-                    <div style={{ minWidth:24, fontWeight:700, fontSize:11, color:'var(--text-muted)' }}>J{m.jornada}</div>
+                    <div style={{ minWidth:24, fontWeight:700, fontSize:11, color:'var(--text-muted)', textAlign:'center' }}>{esLiga(m) ? ('J'+(m.jornada ?? '')) : ''}</div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{m.local?'🏠':'✈️'} {m.rival}</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', display:'flex', alignItems:'center', gap:6 }}>
+                        <span>{m.local?'🏠':'✈️'} {m.rival}</span>
+                        {!esLiga(m) && <span style={{ fontSize:9, fontWeight:800, letterSpacing:'.3px', padding:'1px 6px', borderRadius:5, background:'var(--surface3)', color:'var(--gold)' }}>{tipoInfo(m.tipo).short}</span>}
+                      </div>
                       {m.fecha && <div style={{ fontSize:10, color:'var(--text-muted)' }}>{new Date(m.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>}
                     </div>
                     {jugado ? (
@@ -1551,6 +1594,38 @@ function EquipoContent() {
           </div>
         )}
       </div>
+      {showAddMatch && (
+        <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24 }} onClick={() => setShowAddMatch(false)}>
+          <div className="card" style={{ width:'100%',maxWidth:360 }} onClick={(e: any) => e.stopPropagation()}>
+            <div style={{ fontWeight:700, fontSize:16, marginBottom:16 }}>Nuevo partido</div>
+            <label className="label">Rival *</label>
+            <input className="input" placeholder="Nombre del rival" value={newMatch.rival} onChange={e => setNewMatch(v => ({ ...v, rival: e.target.value }))} style={{ marginBottom:12 }} />
+            <label className="label">Tipo</label>
+            <select className="input" value={newMatch.tipo} onChange={e => setNewMatch(v => ({ ...v, tipo: e.target.value }))} style={{ marginBottom:12 }}>
+              {TIPOS_PARTIDO.map(t => <option key={t.v} value={t.v}>{t.label}</option>)}
+            </select>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+              <div>
+                <label className="label">Fecha</label>
+                <input className="input" type="date" value={newMatch.fecha} onChange={e => setNewMatch(v => ({ ...v, fecha: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">{newMatch.tipo === 'liga' ? 'Jornada' : 'Jornada (opc.)'}</label>
+                <input className="input" type="number" placeholder="—" value={newMatch.jornada} onChange={e => setNewMatch(v => ({ ...v, jornada: e.target.value }))} />
+              </div>
+            </div>
+            <label className="label">Dónde se juega</label>
+            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+              <button className={'btn btn-sm ' + (newMatch.local ? 'btn-gold' : 'btn-ghost')} style={{ flex:1 }} onClick={() => setNewMatch(v => ({ ...v, local: true }))}>🏠 Local</button>
+              <button className={'btn btn-sm ' + (!newMatch.local ? 'btn-gold' : 'btn-ghost')} style={{ flex:1 }} onClick={() => setNewMatch(v => ({ ...v, local: false }))}>✈️ Visitante</button>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button className="btn btn-ghost" style={{ flex:1 }} onClick={() => setShowAddMatch(false)}>Cancelar</button>
+              <button className="btn btn-gold" style={{ flex:1 }} onClick={saveNewMatch} disabled={savingNewMatch}>{savingNewMatch ? 'Guardando…' : 'Crear partido'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {editingResult && (
         <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24 }} onClick={() => setEditingResult(null)}>
           <div className="card" style={{ width:'100%',maxWidth:320 }} onClick={(e: any) => e.stopPropagation()}>
