@@ -1393,7 +1393,7 @@ function EquipoContent() {
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-ghost btn-sm" style={{ fontWeight: 700 }} onClick={() => router.push('/partido?team=' + id)}>▶ Partido en directo</button>
+            <button className="btn btn-ghost btn-sm" style={{ fontWeight: 700 }} onClick={() => router.push('/partido?team=' + (team?.id || teamId || ''))}>▶ Partido en directo</button>
             <button className="btn btn-gold btn-sm" onClick={() => setShowAddPlayer(true)}>+ Jugador</button>
           </div>
         )}
