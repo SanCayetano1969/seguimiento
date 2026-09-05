@@ -425,8 +425,24 @@ function EquipoContent() {
     const { data: rpData } = await supabase.from('player_reports').select('*').eq('player_id', p.id).order('created_at', { ascending: false })
     setPlayerReports(rpData || [])
     const { data: mData } = await supabase.from('matches').select('*').eq('team_id', p.team_id).order('fecha', { ascending: false })
-    setMatches(mData || [])
     const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', p.id)
+    // Partidos jugados como invitado con otro equipo del club: hay que traerlos aparte
+    // o el histórico del jugador los ocultaría (aunque sí cuenten en los totales).
+    const faltan = Array.from(new Set((msData || [])
+      .map((s: any) => s.match_id)
+      .filter((id: string) => id && !(mData || []).some((m: any) => m.id === id))))
+    let extras: any[] = []
+    if (faltan.length) {
+      const { data: em } = await supabase.from('matches').select('*').in('id', faltan)
+      const tIds = Array.from(new Set((em || []).map((m: any) => m.team_id).filter(Boolean)))
+      const tn: Record<string, string> = {}
+      if (tIds.length) {
+        const { data: ts } = await supabase.from('teams').select('id, name').in('id', tIds)
+        ;(ts || []).forEach((t: any) => { tn[t.id] = t.name })
+      }
+      extras = (em || []).map((m: any) => ({ ...m, otro_equipo_name: tn[m.team_id] || 'Otro equipo' }))
+    }
+    setMatches([...(mData || []), ...extras])
     setMatchStats(msData || [])
   }
 
@@ -1265,8 +1281,17 @@ function EquipoContent() {
                       return (
                         <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 6, fontSize: 13, flexWrap: 'wrap' }}
                         >
-                          <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 28 }}>J{m.jornada}</span>
-                          <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 80 }}>{rival}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--accent)', minWidth: 28 }}>
+                            {esLiga(m) && m.jornada ? 'J' + m.jornada : tipoInfo(m.tipo).short}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)', flex: 1, minWidth: 80 }}>
+                            {rival}
+                            {m.otro_equipo_name && (
+                              <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.3px', color: 'var(--gold)', background: 'var(--surface)', borderRadius: 5, padding: '1px 6px', marginLeft: 6 }}>
+                                con {m.otro_equipo_name}
+                              </span>
+                            )}
+                          </span>
                           <span style={{ color: 'var(--text)' }}><b>{s.minutos}'</b></span>
                           <button
                             style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, padding: '2px 4px', flexShrink: 0 }}
