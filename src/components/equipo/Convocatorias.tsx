@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
-import { cargarJugadoresOtrosEquipos, buscaTexto, TIPOS_PARTIDO_LBL, type JugadorInvitado } from '@/lib/categorias'
+import { cargarJugadoresOtrosEquipos, TIPOS_PARTIDO_LBL, type JugadorInvitado } from '@/lib/categorias'
+import PickerJugadores from '@/components/PickerJugadores'
 import jsPDF from 'jspdf'
 
 interface Props { team: any; players: any[]; matches: any[] }
@@ -36,7 +37,6 @@ export default function Convocatorias({ team, players, matches }: Props) {
   const [pool, setPool] = useState<JugadorInvitado[] | null>(null)           // candidatos (carga perezosa)
   const [showPicker, setShowPicker] = useState(false)
   const [loadingPool, setLoadingPool] = useState(false)
-  const [buscar, setBuscar] = useState('')
 
   useEffect(() => {
     supabase.from('teams').select('id, name').then(({ data }) => {
@@ -84,7 +84,6 @@ export default function Convocatorias({ team, players, matches }: Props) {
 
   async function abrirPicker() {
     setShowPicker(true)
-    setBuscar('')
     if (pool === null) {
       setLoadingPool(true)
       const lista = await cargarJugadoresOtrosEquipos(team)
@@ -186,6 +185,7 @@ export default function Convocatorias({ team, players, matches }: Props) {
       if (pl && esInvitado(j.player_id)) {
         inv.push({
           id: j.player_id, name: pl.name, dorsal: pl.dorsal ?? null, position: null,
+          team_category: '', rango: 0,
           team_id: pl.team_id, team_name: teamNames[pl.team_id] || 'Otro equipo',
         })
       }
@@ -311,13 +311,6 @@ export default function Convocatorias({ team, players, matches }: Props) {
 
   // Lista completa del formulario: plantilla propia + invitados
   const filaJugadores: any[] = [...players, ...invitados]
-  const poolFiltrado = (pool || [])
-    .filter(p => !form.jugadores[p.id])
-    .filter(p => {
-      const q = buscaTexto(buscar)
-      if (q.length < 1) return true
-      return buscaTexto(p.name).includes(q) || buscaTexto(p.team_name).includes(q)
-    })
 
   return (
     <div style={{ marginBottom: 4 }}>
@@ -509,43 +502,13 @@ export default function Convocatorias({ team, players, matches }: Props) {
 
       {/* MODAL: elegir jugador de otro equipo */}
       {showPicker && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-          onClick={e => e.target === e.currentTarget && setShowPicker(false)}>
-          <div style={{ width: '100%', maxWidth: 460, maxHeight: '82vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Jugador de otro equipo</div>
-              <button onClick={() => setShowPicker(false)}
-                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-              Solo equipos de la misma categoría o inferior.
-            </div>
-            <input className='input' placeholder='Buscar por nombre o equipo...' value={buscar}
-              onChange={e => setBuscar(e.target.value)} style={{ marginBottom: 12 }} />
-            {loadingPool && <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>Cargando jugadores…</div>}
-            {!loadingPool && poolFiltrado.length === 0 && (
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>
-                No hay jugadores disponibles con ese criterio.
-              </div>
-            )}
-            {poolFiltrado.slice(0, 60).map(p => (
-              <div key={p.id} onClick={() => addInvitado(p)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, background: 'var(--surface2)', marginBottom: 6, cursor: 'pointer' }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--surface3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: 'var(--gold)', fontSize: 12 }}>{p.dorsal ?? '·'}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.team_name}{p.position ? ' · ' + p.position : ''}</div>
-                </div>
-                <div style={{ marginLeft: 'auto', color: 'var(--gold)', fontWeight: 800, fontSize: 18 }}>+</div>
-              </div>
-            ))}
-            {poolFiltrado.length > 60 && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
-                Afina la búsqueda: hay {poolFiltrado.length} coincidencias.
-              </div>
-            )}
-          </div>
-        </div>
+        <PickerJugadores
+          pool={pool}
+          loading={loadingPool}
+          excluir={Object.keys(form.jugadores)}
+          onPick={addInvitado}
+          onClose={() => setShowPicker(false)}
+        />
       )}
 
       {/* Modal confirmación reemplazar convocatoria */}
