@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef, Suspense, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase, getSession, canEditEval, type Player, type Team } from '@/lib/supabase'
-import { cargarJugadoresOtrosEquipos, buscaTexto, type JugadorInvitado } from '@/lib/categorias'
+import { cargarJugadoresOtrosEquipos, type JugadorInvitado } from '@/lib/categorias'
+import PickerJugadores from '@/components/PickerJugadores'
 
 /* ---------- Definición de métricas (columnas reales de player_match_stats) ---------- */
 const STAT_DEFS: { k: string; lb: string; icon: string }[] = [
@@ -74,7 +75,6 @@ function PartidoInner() {
   const [pool, setPool] = useState<JugadorInvitado[] | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [loadingPool, setLoadingPool] = useState(false)
-  const [buscar, setBuscar] = useState('')
 
   // --- estado del partido en vivo ---
   const [live, setLive] = useState<LiveState | null>(null)
@@ -161,7 +161,6 @@ function PartidoInner() {
 
   async function abrirPicker() {
     setShowPicker(true)
-    setBuscar('')
     if (pool === null) {
       setLoadingPool(true)
       const lista = await cargarJugadoresOtrosEquipos(team)
@@ -500,7 +499,7 @@ function PartidoInner() {
 
         <button className="btn btn-gold" style={{ width: '100%', height: 54, fontSize: 17, marginTop: 14 }} onClick={beginMatch}>▶ Comenzar partido</button>
         {showPicker && (
-          <PickerInvitados pool={pool} loading={loadingPool} buscar={buscar} setBuscar={setBuscar}
+          <PickerJugadores pool={pool} loading={loadingPool}
             excluir={squad.map(p => p.id)} onPick={addInvitado} onClose={() => setShowPicker(false)} />
         )}
         {toast && <Toast msg={toast} />}
@@ -675,43 +674,6 @@ function LuItem({ p, side, onClick, onRemove }: any) {
           style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', padding: '0 2px' }}>✕</button>
       )}
       <div onClick={onClick} style={{ color: 'var(--text-muted)', fontSize: 16, cursor: 'pointer' }}>{side === 'field' ? '→' : '←'}</div>
-    </div>
-  )
-}
-function PickerInvitados({ pool, loading, buscar, setBuscar, excluir, onPick, onClose }: any) {
-  const lista = (pool || [])
-    .filter((p: any) => !excluir.includes(p.id))
-    .filter((p: any) => {
-      const q = buscaTexto(buscar)
-      if (!q) return true
-      return buscaTexto(p.name).includes(q) || buscaTexto(p.team_name).includes(q)
-    })
-  return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(4,9,15,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 300 }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, maxWidth: 480, width: '100%', maxHeight: '85vh', overflowY: 'auto', padding: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>Jugador de otro equipo</div>
-          <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 19, cursor: 'pointer' }}>✕</button>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>Solo equipos de la misma categoría o inferior.</div>
-        <input className="input" placeholder="Buscar por nombre o equipo..." value={buscar}
-          onChange={e => setBuscar(e.target.value)} style={{ marginBottom: 12 }} />
-        {loading && <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>Cargando jugadores…</div>}
-        {!loading && !lista.length && <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: '12px 0' }}>No hay jugadores disponibles con ese criterio.</div>}
-        {lista.slice(0, 60).map((p: any) => (
-          <div key={p.id} onClick={() => onPick(p)}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--surface2)', marginBottom: 6, cursor: 'pointer' }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--surface3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: 'var(--gold)', fontSize: 13 }}>{p.dorsal ?? '·'}</div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.team_name}{p.position ? ' · ' + p.position : ''}</div>
-            </div>
-            <div style={{ marginLeft: 'auto', color: 'var(--gold)', fontWeight: 900, fontSize: 20 }}>+</div>
-          </div>
-        ))}
-        {lista.length > 60 && <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>Afina la búsqueda: hay {lista.length} coincidencias.</div>}
-      </div>
     </div>
   )
 }
