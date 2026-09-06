@@ -80,6 +80,13 @@ function PartidoInner() {
   const [live, setLive] = useState<LiveState | null>(null)
   const [running, setRunning] = useState(false)
   const timerRef = useRef<any>(null)
+  // El cronometro NO cuenta tics: mide tiempo real con marcas de reloj. Si el movil se
+  // bloquea o la app pasa a segundo plano, el navegador deja de disparar el intervalo,
+  // pero al volver se recupera todo el tiempo transcurrido de una vez.
+  const lastTickRef = useRef<number>(Date.now())
+  const runningRef = useRef(false)
+  const wakeLockRef = useRef<any>(null)
+  const [wakeOn, setWakeOn] = useState(false)
 
   // --- modales ---
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -115,25 +122,73 @@ function PartidoInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId])
 
-  /* ---------- Reloj ---------- */
+  /* ---------- Reloj (basado en tiempo real, no en tics) ---------- */
+  useEffect(() => { runningRef.current = running }, [running])
+
+  // Suma al partido y a los jugadores en campo el tiempo REAL transcurrido desde la
+  // ultima medicion. Se llama cada segundo, al volver de segundo plano, y antes de
+  // cualquier accion que cambie quien esta en el campo (pausa, cambio, fin de periodo).
+  const flush = useCallback(() => {
+    const now = Date.now()
+    const delta = (now - lastTickRef.current) / 1000
+    lastTickRef.current = now
+    if (!runningRef.current || delta <= 0) return
+    setLive(prev => {
+      if (!prev) return prev
+      const players = { ...prev.players }
+      for (const id in players) {
+        if (players[id].onField) {
+          const q = players[id].quarters.includes(prev.period) ? players[id].quarters : [...players[id].quarters, prev.period]
+          players[id] = { ...players[id], seconds: players[id].seconds + delta, quarters: q }
+        }
+      }
+      return { ...prev, elapsed: prev.elapsed + delta, players }
+    })
+  }, [])
+
   useEffect(() => {
-    if (running) {
-      timerRef.current = setInterval(() => {
-        setLive(prev => {
-          if (!prev) return prev
-          const players = { ...prev.players }
-          for (const id in players) {
-            if (players[id].onField) {
-              const q = players[id].quarters.includes(prev.period) ? players[id].quarters : [...players[id].quarters, prev.period]
-              players[id] = { ...players[id], seconds: players[id].seconds + 1, quarters: q }
-            }
-          }
-          return { ...prev, elapsed: prev.elapsed + 1, players }
-        })
-      }, 1000)
+    if (!running) return
+    lastTickRef.current = Date.now()
+    timerRef.current = setInterval(flush, 1000)
+    // Al desbloquear el movil o volver a la app, recuperar el tiempo perdido al instante
+    const onVisible = () => { if (document.visibilityState === 'visible') flush() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    window.addEventListener('pageshow', onVisible)
+    return () => {
+      clearInterval(timerRef.current)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+      window.removeEventListener('pageshow', onVisible)
     }
-    return () => clearInterval(timerRef.current)
-  }, [running])
+  }, [running, flush])
+
+  /* ---------- Mantener la pantalla encendida durante el partido ---------- */
+  useEffect(() => {
+    if (phase !== 'live') return
+    let vivo = true
+    const pedir = async () => {
+      try {
+        const nav: any = navigator
+        if (!nav.wakeLock?.request) return
+        wakeLockRef.current = await nav.wakeLock.request('screen')
+        if (!vivo) { try { wakeLockRef.current.release() } catch {} ; return }
+        setWakeOn(true)
+        wakeLockRef.current.addEventListener?.('release', () => setWakeOn(false))
+      } catch { setWakeOn(false) }
+    }
+    pedir()
+    // iOS/Android sueltan el bloqueo al ocultar la pagina: hay que volver a pedirlo
+    const onVisible = () => { if (document.visibilityState === 'visible') pedir() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      vivo = false
+      document.removeEventListener('visibilitychange', onVisible)
+      try { wakeLockRef.current?.release?.() } catch {}
+      wakeLockRef.current = null
+      setWakeOn(false)
+    }
+  }, [phase])
 
   /* ---------- Persistencia local (resume) ---------- */
   useEffect(() => {
@@ -322,8 +377,12 @@ function PartidoInner() {
   function score(side: 'propio' | 'rival', d: number) {
     setLive(prev => prev ? (side === 'propio' ? { ...prev, scP: Math.max(0, prev.scP + d) } : { ...prev, scR: Math.max(0, prev.scR + d) }) : prev)
   }
-  function toggleClock() { setRunning(r => !r) }
+  function toggleClock() {
+    if (runningRef.current) { flush(); setRunning(false) }
+    else { lastTickRef.current = Date.now(); setRunning(true) }
+  }
   function nextPeriod() {
+    flush()   // cerrar el periodo con el tiempo real acumulado
     setLive(prev => {
       if (!prev) return prev
       if (prev.period >= prev.periods) { showToast('Último periodo'); return prev }
@@ -333,6 +392,7 @@ function PartidoInner() {
     showToast('Fin de periodo · descanso')
   }
   function doSub(outId: string, inId: string) {
+    flush()   // repartir los minutos antes de mover a nadie
     setLive(prev => {
       if (!prev) return prev
       const players = { ...prev.players }
@@ -376,8 +436,9 @@ function PartidoInner() {
   /* ================= RENDER ================= */
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Cargando…</div>
 
+  // Los segundos se guardan con decimales (tiempo real), asi que se redondean al mostrar
   const mm = (s: number) => String(Math.floor(s / 60)).padStart(2, '0')
-  const ss = (s: number) => String(s % 60).padStart(2, '0')
+  const ss = (s: number) => String(Math.floor(s) % 60).padStart(2, '0')
   const minLbl = (sec: number) => Math.floor(sec / 60) + "'"
   const periodName = (per: number, tot: number) => {
     const names = tot === 2 ? ['1ª parte', '2ª parte'] : ['1er cuarto', '2º cuarto', '3er cuarto', '4º cuarto']
@@ -532,12 +593,14 @@ function PartidoInner() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 14, padding: '6px 14px' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 28, fontWeight: 900, letterSpacing: 1 }}>{mm(live.elapsed)}:{ss(live.elapsed)}</div>
-                <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700 }}>{periodName(live.period, live.periods)}</div>
+                <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700 }}>
+                  {periodName(live.period, live.periods)}{wakeOn ? ' 🔆' : ''}
+                </div>
               </div>
               <button className="btn" style={{ width: 46, height: 46, fontSize: 20, background: running ? 'var(--orange)' : 'var(--green)', color: '#fff' }} onClick={toggleClock}>{running ? '⏸' : '▶'}</button>
               <button className="btn btn-ghost" style={{ width: 46, height: 46, fontSize: 18 }} onClick={nextPeriod} title="Fin de periodo">⏭</button>
             </div>
-            <button className="btn btn-gold" style={{ height: 46, padding: '0 16px', fontWeight: 800 }} onClick={() => { setRunning(false); setPhase('summary') }}>Finalizar</button>
+            <button className="btn btn-gold" style={{ height: 46, padding: '0 16px', fontWeight: 800 }} onClick={() => { flush(); setRunning(false); setPhase('summary') }}>Finalizar</button>
           </div>
         </div>
 
