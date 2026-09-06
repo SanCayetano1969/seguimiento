@@ -50,29 +50,50 @@ export type JugadorInvitado = {
   position: string | null
   team_id: string
   team_name: string
+  team_category: string
+  rango: number
 }
 
 /**
  * Carga los jugadores activos de los equipos permitidos (misma categoria o inferior).
- * Devuelve la lista lista para el buscador, con el nombre del equipo de origen.
+ * IMPORTANTE: ordenados por CERCANIA de categoria (primero la misma categoria, luego
+ * las inferiores). Si se ordenase alfabeticamente, los equipos de la misma categoria
+ * quedarian al final de la lista y practicamente ocultos.
  */
 export async function cargarJugadoresOtrosEquipos(team: any): Promise<JugadorInvitado[]> {
   const { data: teams } = await supabase.from('teams').select('id, name, category')
   const permitidos = equiposPermitidos(team, teams || [])
   if (!permitidos.length) return []
-  const nombrePorId: Record<string, string> = {}
-  permitidos.forEach(t => { nombrePorId[t.id] = t.name })
+  const infoPorId: Record<string, { name: string; category: string; rango: number }> = {}
+  permitidos.forEach(t => {
+    infoPorId[t.id] = { name: t.name, category: t.category || '', rango: rangoCategoria(t) }
+  })
   const { data: pls } = await supabase
     .from('players')
     .select('id, name, dorsal, position, team_id')
     .in('team_id', permitidos.map(t => t.id))
     .eq('active', true)
   return (pls || [])
-    .map(p => ({ ...p, team_name: nombrePorId[p.team_id] || '' } as JugadorInvitado))
+    .map(p => {
+      const info = infoPorId[p.team_id] || { name: '', category: '', rango: 0 }
+      return { ...p, team_name: info.name, team_category: info.category, rango: info.rango } as JugadorInvitado
+    })
     .sort((a, b) =>
+      (b.rango - a.rango) ||
       (a.team_name || '').localeCompare(b.team_name || '') ||
       (a.name || '').localeCompare(b.name || '')
     )
+}
+
+/** Equipos presentes en un pool de jugadores, en el mismo orden (mas cercano primero). */
+export function equiposDelPool(pool: JugadorInvitado[] | null) {
+  const out: { id: string; name: string; category: string; rango: number; n: number }[] = []
+  ;(pool || []).forEach(p => {
+    const ex = out.find(t => t.id === p.team_id)
+    if (ex) ex.n++
+    else out.push({ id: p.team_id, name: p.team_name, category: p.team_category, rango: p.rango, n: 1 })
+  })
+  return out
 }
 
 /** Normaliza texto para buscar sin tildes ni mayusculas. */
