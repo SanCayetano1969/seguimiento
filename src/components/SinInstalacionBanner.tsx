@@ -15,11 +15,14 @@ export default function SinInstalacionBanner() {
 
     async function check() {
       const hoy = new Date().toISOString().split('T')[0]
+      // Solo los próximos 7 días (si no, el cartel saldría todo el año con las reservas ya conocidas)
+      const en7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
       let query = supabase
         .from('events')
         .select('id, title, date, time, location, team_id, teams(name)')
         .eq('sin_instalacion', true)
         .gte('date', hoy)
+        .lte('date', en7)
         .order('date', { ascending: true })
 
       if (session.role === 'coach' && (session as any).team_id) {
