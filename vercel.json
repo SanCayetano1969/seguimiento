@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/recordatorio-estadisticas",
       "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/cron/recordatorio-sin-instalacion",
+      "schedule": "0 7 * * *"
     }
   ]
 }
