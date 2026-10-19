@@ -67,6 +67,16 @@ const TIPOS_PARTIDO: { v: string; label: string; short: string }[] = [
   { v: 'torneo', label: 'Torneo', short: 'TORNEO' },
   { v: 'otro', label: 'Otro', short: 'OTRO' },
 ]
+// Orden de plantilla: por dorsal numérico (1, 2, 3 … 14), los que no tienen dorsal al final y por nombre
+function ordenarPorDorsal(ps: any[]) {
+  return [...ps].sort((a, b) => {
+    const da = a.dorsal == null || a.dorsal === '' ? Infinity : Number(a.dorsal)
+    const db = b.dorsal == null || b.dorsal === '' ? Infinity : Number(b.dorsal)
+    if (da !== db) return da - db
+    return (a.name || '').localeCompare(b.name || '', 'es')
+  })
+}
+
 const esLiga = (m: any) => (m?.tipo || 'liga') === 'liga'
 const tipoInfo = (t: string | null | undefined) => TIPOS_PARTIDO.find(x => x.v === (t || 'liga')) || TIPOS_PARTIDO[0]
 
@@ -337,7 +347,7 @@ function EquipoContent() {
       supabase.from('jornadas').select('*').eq('team_id', id).order('number'),
     ])
     setTeam(t)
-    setPlayers(pl || [])
+    setPlayers(ordenarPorDorsal(pl || []))
     setJornadas(j || [])
     if (j && j.length > 0) setJornada(j[j.length - 1].id)
     setLoading(false)
@@ -386,7 +396,7 @@ function EquipoContent() {
     }
     await supabase.from('players').update({ [field]: saveVal }).eq('id', selected.id)
     setSelected((p: any) => ({ ...p, [field]: saveVal }))
-    setPlayers(ps => ps.map(p => p.id === selected.id ? { ...p, [field]: saveVal } : p))
+    setPlayers(ps => ordenarPorDorsal(ps.map(p => p.id === selected.id ? { ...p, [field]: saveVal } : p)))
     setEditingField(null)
   }
 
