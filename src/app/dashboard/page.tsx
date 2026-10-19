@@ -7,6 +7,9 @@ import BottomNav from '@/components/BottomNav'
 import { format, startOfWeek, addDays, addWeeks, isSameDay, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+// Semanas de agenda en Inicio (la completa está en la pestaña Agenda)
+const SEMANAS_INICIO = 2
+
 const EVENT_ICONS: Record<string, string> = {
   partido: '⚽', entrenamiento: '🏃', torneo: '🏆', otro: '📌'
 }
@@ -40,7 +43,7 @@ export default function DashboardPageV2() {
       setTeams(data || [])
     }
     const today = new Date()
-    const end = addWeeks(today, 5)
+    const end = addWeeks(startOfWeek(today, { weekStartsOn: 1 }), SEMANAS_INICIO)
     let evQuery = supabase.from('events')
       .select('*, teams(name,category)')
       .gte('date', format(today, 'yyyy-MM-dd'))
@@ -112,7 +115,7 @@ export default function DashboardPageV2() {
   // Agrupar eventos por semana
   const weeks: { label: string; days: { date: Date; events: Event[] }[] }[] = []
   const today = new Date()
-  for (let w = 0; w < 5; w++) {
+  for (let w = 0; w < SEMANAS_INICIO; w++) {
     const weekStart = startOfWeek(addWeeks(today, w), { weekStartsOn: 1 })
     const days = Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekStart, i)
@@ -170,6 +173,29 @@ export default function DashboardPageV2() {
             </div>
           )}
 
+          {/* Acceso rápido a equipos */}
+          {teams.length > 0 && (
+            <>
+              <div className="section-title">⚽ Mis equipos</div>
+              <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {teams.map(t => (
+                  <button
+                    key={t.id}
+                    className="card"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    onClick={() => router.push(`/equipo?team=${t.id}`)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{t.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.category} · {t.modalidad}</div>
+                    </div>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
           {/* Tablón de anuncios */}
           {announcements.length > 0 && (
             <>
@@ -191,8 +217,11 @@ export default function DashboardPageV2() {
             </>
           )}
 
-          {/* Agenda 5 semanas */}
-          <div className="section-title">📅 Agenda</div>
+          {/* Agenda: esta semana y la próxima */}
+          <div className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📅 Agenda</span>
+            <button onClick={() => router.push('/agenda')} style={{ background: 'none', border: 'none', color: 'var(--gold)', fontSize: 12, cursor: 'pointer' }}>Ver completa →</button>
+          </div>
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {weeks.map((week, wi) => (
               <div key={wi}>
@@ -222,28 +251,6 @@ export default function DashboardPageV2() {
             ))}
           </div>
 
-          {/* Acceso rápido a equipos */}
-          {teams.length > 0 && (
-            <>
-              <div className="section-title">⚽ Mis equipos</div>
-              <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {teams.map(t => (
-                  <button
-                    key={t.id}
-                    className="card"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
-                    onClick={() => router.push(`/equipo?team=${t.id}`)}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{t.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.category} · {t.modalidad}</div>
-                    </div>
-                    <span style={{ color: 'var(--text-muted)' }}>→</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
         </>
       )}
 
