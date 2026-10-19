@@ -4,6 +4,16 @@ import { useRouter } from 'next/navigation'
 import { getSession, setSession, clearSession } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 
+// Roles cuya sesión depende de los equipos asignados en user_teams
+const ROLES_CON_EQUIPOS = ['coach', 'psychologist']
+
+function mismosIds(a: string[], b: string[]) {
+  if (a.length !== b.length) return false
+  const sa = [...a].sort()
+  const sb = [...b].sort()
+  return sa.every((v, i) => v === sb[i])
+}
+
 export default function SessionSync() {
   const router = useRouter()
 
@@ -28,11 +38,29 @@ export default function SessionSync() {
           return
         }
 
-        // Si el rol cambio, actualizar la sesion local
-        if (user.role !== session.role || user.name !== session.name) {
-          const updated = { ...session, role: user.role, name: user.name, avatar_url: user.avatar_url }
-          setSession(updated, session.team_ids || [])
-          // Recargar la pagina para aplicar el nuevo rol
+        // Equipos asignados: se releen de user_teams para que la sesión
+        // guardada en el móvil no se quede con una lista vieja o vacía
+        let teamIds: string[] = session.team_ids || []
+        let equiposCambiados = false
+        if (ROLES_CON_EQUIPOS.includes(user.role)) {
+          const { data: ut, error: utError } = await supabase
+            .from('user_teams')
+            .select('team_id')
+            .eq('user_id', user.id)
+          if (!utError && ut) {
+            const nuevos = ut.map((r: any) => r.team_id)
+            if (!mismosIds(nuevos, teamIds)) {
+              teamIds = nuevos
+              equiposCambiados = true
+            }
+          }
+        }
+
+        // Si el rol, el nombre o los equipos cambiaron, actualizar la sesion local
+        if (user.role !== session.role || user.name !== session.name || equiposCambiados) {
+          const updated = { ...session, role: user.role, name: user.name, avatar_url: user.avatar_url, team_ids: teamIds }
+          setSession(updated, teamIds)
+          // Recargar la pagina para aplicar los cambios
           window.location.reload()
         }
       } catch(e) {
