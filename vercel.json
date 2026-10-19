@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/cron/recordatorio-estadisticas",
-      "schedule": "0 20 * * 0"
+      "schedule": "0 16 * * 1"
     },
     {
       "path": "/api/cron/recordatorio-sin-instalacion",
