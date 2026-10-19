@@ -36,7 +36,9 @@ type LiveState = {
   minper: number
   scP: number
   scR: number
-  events: { min: number; pid: string; txt: string }[]
+  events: { min: number; pid: string; txt: string; per?: number }[]
+  periodStart?: number      // segundos totales al empezar el periodo actual (el crono del periodo arranca en 0)
+  periodTimes?: number[]    // duración real de cada periodo ya cerrado (p. ej. 1º cuarto 19:05)
 }
 
 function PartidoInner() {
@@ -349,7 +351,7 @@ function PartidoInner() {
       const onField = luState[p.id] === 'field'
       players[p.id] = { onField, titular: onField, seconds: 0, quarters: [], stats: blankStats() }
     })
-    setLive({ matchId, players, elapsed: 0, period: 1, periods, minper, scP: 0, scR: 0, events: [] })
+    setLive({ matchId, players, elapsed: 0, period: 1, periods, minper, scP: 0, scR: 0, events: [], periodStart: 0, periodTimes: [] })
     setPhase('live')
   }
 
@@ -368,7 +370,7 @@ function PartidoInner() {
       if (changed > 0) {
         const def = STAT_DEFS.find(s => s.k === k)!
         const nm = pById(pid)?.name || ''
-        events = [{ min: Math.floor(prev.elapsed / 60), pid, txt: `${def.icon} ${def.lb.replace('.', '')} · ${nm}` }, ...prev.events]
+        events = [{ min: Math.floor((prev.elapsed - (prev.periodStart || 0)) / 60), per: prev.period, pid, txt: `${def.icon} ${def.lb.replace('.', '')} · ${nm}` }, ...prev.events]
         if (k === 'goles') scP = prev.scP + 1
       }
       return { ...prev, players, events, scP }
@@ -386,7 +388,10 @@ function PartidoInner() {
     setLive(prev => {
       if (!prev) return prev
       if (prev.period >= prev.periods) { showToast('Último periodo'); return prev }
-      return { ...prev, period: prev.period + 1 }
+      // cerrar el periodo: guardar lo que ha durado de verdad y poner su crono a 0
+      const start = prev.periodStart || 0
+      const periodTimes = [...(prev.periodTimes || []), prev.elapsed - start]
+      return { ...prev, period: prev.period + 1, periodStart: prev.elapsed, periodTimes }
     })
     setRunning(false)
     showToast('Fin de periodo · descanso')
@@ -399,7 +404,7 @@ function PartidoInner() {
       players[outId] = { ...players[outId], onField: false }
       players[inId] = { ...players[inId], onField: true }
       const nmIn = pById(inId)?.name || '', nmOut = pById(outId)?.name || ''
-      const events = [{ min: Math.floor(prev.elapsed / 60), pid: inId, txt: `🔄 Cambio · ${nmIn} por ${nmOut}` }, ...prev.events]
+      const events = [{ min: Math.floor((prev.elapsed - (prev.periodStart || 0)) / 60), per: prev.period, pid: inId, txt: `🔄 Cambio · ${nmIn} por ${nmOut}` }, ...prev.events]
       return { ...prev, players, events }
     })
     setSubOut(null); setSubInId(null)
@@ -592,10 +597,17 @@ function PartidoInner() {
             {/* reloj */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 14, padding: '6px 14px' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 28, fontWeight: 900, letterSpacing: 1 }}>{mm(live.elapsed)}:{ss(live.elapsed)}</div>
+                {(() => {
+                  const perSec = live.elapsed - (live.periodStart || 0)
+                  const pasado = live.minper > 0 && perSec >= live.minper * 60
+                  return (
+                    <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 28, fontWeight: 900, letterSpacing: 1, color: pasado ? 'var(--orange)' : undefined }}>{mm(perSec)}:{ss(perSec)}</div>
+                  )
+                })()}
                 <div style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700 }}>
-                  {periodName(live.period, live.periods)}{wakeOn ? ' 🔆' : ''}
+                  {periodName(live.period, live.periods)}{live.minper > 0 ? ` · ${live.minper}'` : ''}{wakeOn ? ' 🔆' : ''}
                 </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>Total {mm(live.elapsed)}:{ss(live.elapsed)}</div>
               </div>
               <button className="btn" style={{ width: 46, height: 46, fontSize: 20, background: running ? 'var(--orange)' : 'var(--green)', color: '#fff' }} onClick={toggleClock}>{running ? '⏸' : '▶'}</button>
               <button className="btn btn-ghost" style={{ width: 46, height: 46, fontSize: 18 }} onClick={nextPeriod} title="Fin de periodo">⏭</button>
@@ -629,7 +641,7 @@ function PartidoInner() {
             {!live.events.length && <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: 4 }}>Aún sin sucesos</div>}
             {live.events.slice(0, 40).map((e, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, padding: '6px 8px', borderRadius: 9, background: 'var(--surface2)', marginBottom: 6, alignItems: 'center' }}>
-                <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--gold)', fontWeight: 800, minWidth: 30 }}>{e.min}'</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--gold)', fontWeight: 800, minWidth: 30 }}>{e.per && live.periods > 1 ? `${live.periods === 4 ? 'C' : 'P'}${e.per} ` : ''}{e.min}'</span>
                 <span>{e.txt}</span>
                 <button onClick={() => undoEvent(i)} style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: 13, padding: '2px 6px', borderRadius: 6, background: 'var(--surface3)', border: 'none', cursor: 'pointer' }}>✕</button>
               </div>
