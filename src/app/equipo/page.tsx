@@ -77,6 +77,19 @@ function ordenarPorDorsal(ps: any[]) {
   })
 }
 
+// Formulario de estadísticas de un partido: vacío o a partir de la fila guardada
+const FORM_STATS_VACIO = { titular: true, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, cuartos: [] as number[] }
+function formDesdeStat(e: any) {
+  if (!e) return { ...FORM_STATS_VACIO }
+  return {
+    titular: e.titular, minutos: e.minutos, goles: e.goles, asistencias: e.asistencias,
+    tiros: e.tiros, tiros_puerta: e.tiros_puerta, recuperaciones: e.recuperaciones, intercepciones: e.intercepciones,
+    entradas: e.entradas, pases_completos: e.pases_completos, pases_fallados: e.pases_fallados,
+    faltas_cometidas: e.faltas_cometidas, faltas_recibidas: e.faltas_recibidas,
+    amarillas: e.amarillas, rojas: e.rojas, cuartos: e.cuartos_jugados || [],
+  }
+}
+
 const esLiga = (m: any) => (m?.tipo || 'liga') === 'liga'
 const tipoInfo = (t: string | null | undefined) => TIPOS_PARTIDO.find(x => x.v === (t || 'liga')) || TIPOS_PARTIDO[0]
 
@@ -320,6 +333,9 @@ function EquipoContent() {
   const [selectedMatch, setSelectedMatch] = useState<string>('')
   const [matchForm, setMatchForm] = useState<any>({})
   const [savingMatch, setSavingMatch] = useState(false)
+  // Convocatoria del partido elegido en Estadísticas: player_id → { estado, motivo, nota }.
+  // null = ese partido no tiene convocatoria registrada.
+  const [convPartido, setConvPartido] = useState<Record<string, { estado: string, motivo: string, nota: string }> | null>(null)
   const [showAddMatch, setShowAddMatch] = useState(false)
   const [newMatch, setNewMatch] = useState<{rival:string,tipo:string,fecha:string,local:boolean,jornada:string}>({ rival:'', tipo:'liga', fecha:'', local:true, jornada:'' })
   const [savingNewMatch, setSavingNewMatch] = useState(false)
@@ -416,10 +432,11 @@ function EquipoContent() {
     setUploadingPhoto(false)
   }
 
-  async function openPlayer(p: any) {
+  async function openPlayer(p: any, opts?: { mantenerPestana?: boolean }) {
     setSelected(p)
-    setTab('ficha')
+    if (!opts?.mantenerPestana) setTab('ficha')
     setEvalDetail(null)
+    setEvalForm({})   // que no se arrastren notas de evaluación de un jugador a otro
     const { data } = await supabase.from('evaluations').select('*').eq('player_id', p.id).order('created_at', { ascending: false })
     setEvals(data || [])
     if (canMeetings) {
@@ -454,7 +471,50 @@ function EquipoContent() {
     }
     setMatches([...(mData || []), ...extras])
     setMatchStats(msData || [])
+    // Si venimos de «anterior/siguiente» con un partido elegido, cargar los datos de este jugador en ese partido
+    if (opts?.mantenerPestana && selectedMatch) {
+      setMatchForm(formDesdeStat((msData || []).find((s: any) => s.match_id === selectedMatch)))
+    }
   }
+
+  // Navegar al jugador anterior/siguiente de la plantilla sin volver al listado
+  async function irAJugador(paso: number) {
+    if (!selected) return
+    const i = players.findIndex((p: any) => p.id === selected.id)
+    const destino = players[i + paso]
+    if (!destino) return
+    if (tab === 'partidos' && selectedMatch && hayCambiosStats()) {
+      if (!window.confirm('Hay estadísticas sin guardar de ' + selected.name + '. ¿Salir sin guardar?')) return
+    }
+    await openPlayer(destino, { mantenerPestana: true })
+  }
+
+  function hayCambiosStats() {
+    const guardado = formDesdeStat(matchStats.find((s: any) => s.match_id === selectedMatch))
+    const actual = { ...FORM_STATS_VACIO, ...matchForm }
+    return Object.keys(guardado).some(k => JSON.stringify((guardado as any)[k] ?? 0) !== JSON.stringify(actual[k] ?? 0))
+  }
+
+  // Convocatoria del partido elegido (para mostrar convocado / no convocado + motivo)
+  useEffect(() => {
+    if (!selectedMatch) { setConvPartido(null); return }
+    let vivo = true
+    supabase.from('convocatorias')
+      .select('id, created_at, convocatoria_jugadores(player_id, estado, motivo_no_disponible, nota_castigo)')
+      .eq('jornada_id', selectedMatch)
+      .order('created_at', { ascending: false }).limit(1)
+      .then(({ data }) => {
+        if (!vivo) return
+        const conv = data?.[0]
+        if (!conv) { setConvPartido(null); return }
+        const mapa: Record<string, { estado: string, motivo: string, nota: string }> = {}
+        ;(conv.convocatoria_jugadores || []).forEach((j: any) => {
+          mapa[j.player_id] = { estado: j.estado || 'convocado', motivo: j.motivo_no_disponible || '', nota: j.nota_castigo || '' }
+        })
+        setConvPartido(mapa)
+      })
+    return () => { vivo = false }
+  }, [selectedMatch])
 
 
   async function saveResult() {
@@ -490,7 +550,7 @@ function EquipoContent() {
 
 
 
-  async function saveMatchStat() {
+  async function saveMatchStat(yPasarAlSiguiente = false) {
     if (!selected || !selectedMatch || !session) return
     setSavingMatch(true)
     const existing = matchStats.find((s: any) => s.match_id === selectedMatch)
@@ -524,6 +584,11 @@ function EquipoContent() {
     const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', selected.id)
     setMatchStats(msData || [])
     setSavingMatch(false)
+    if (yPasarAlSiguiente) {
+      const i = players.findIndex((p: any) => p.id === selected.id)
+      const destino = players[i + 1]
+      if (destino) await openPlayer(destino, { mantenerPestana: true })
+    }
   }
 
   async function saveEval() {
@@ -779,6 +844,23 @@ function EquipoContent() {
             <button key={t.key} className={`btn btn-sm ${tab === t.key ? 'btn-gold' : 'btn-ghost'}`} onClick={() => { setTab(t.key); setEvalDetail(null) }}>{t.label}</button>
           ))}
         </div>
+
+        {/* Anterior / siguiente jugador (mantiene la pestaña y el partido elegido) */}
+        {(() => {
+          const i = players.findIndex((p: any) => p.id === selected.id)
+          if (i < 0 || players.length < 2) return null
+          const ant = players[i - 1], sig = players[i + 1]
+          const etiqueta = (p: any) => (p.dorsal != null ? '#' + p.dorsal + ' ' : '') + (p.name || '').split(' ')[0]
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px 0' }}>
+              <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'flex-start', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', opacity: ant ? 1 : 0.35 }}
+                disabled={!ant} onClick={() => irAJugador(-1)}>‹ {ant ? etiqueta(ant) : ''}</button>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{i + 1} / {players.length}</span>
+              <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'flex-end', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', opacity: sig ? 1 : 0.35 }}
+                disabled={!sig} onClick={() => irAJugador(1)}>{sig ? etiqueta(sig) : ''} ›</button>
+            </div>
+          )
+        })()}
 
         {/* STATS */}
         {tab === 'ficha' && (
@@ -1164,29 +1246,7 @@ function EquipoContent() {
                   value={selectedMatch}
                   onChange={e => {
                     setSelectedMatch(e.target.value)
-                    const existing = matchStats.find((s: any) => s.match_id === e.target.value)
-                    if (existing) {
-                      setMatchForm({
-                        titular: existing.titular,
-                        minutos: existing.minutos,
-                        goles: existing.goles,
-                        asistencias: existing.asistencias,
-                        tiros: existing.tiros,
-                        tiros_puerta: existing.tiros_puerta,
-                        recuperaciones: existing.recuperaciones,
-                        intercepciones: existing.intercepciones,
-                        entradas: existing.entradas,
-                        pases_completos: existing.pases_completos,
-                        pases_fallados: existing.pases_fallados,
-                        faltas_cometidas: existing.faltas_cometidas,
-                        faltas_recibidas: existing.faltas_recibidas,
-                        amarillas: existing.amarillas,
-                        rojas: existing.rojas,
-                        cuartos: existing.cuartos_jugados || [],
-                      })
-                    } else {
-                      setMatchForm({ titular: true, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, cuartos: [] })
-                    }
+                    setMatchForm(formDesdeStat(matchStats.find((s: any) => s.match_id === e.target.value)))
                   }}
                 >
                   <option value="">-- Seleccionar partido --</option>
@@ -1195,13 +1255,52 @@ function EquipoContent() {
                   ))}
                 </select>
 
-                {selectedMatch && (
+                {selectedMatch && (() => {
+                  const cj = convPartido ? convPartido[selected.id] : undefined
+                  const noConvocado = !!cj && cj.estado !== 'convocado'
+                  const yaGuardado = !!matchStats.find((s: any) => s.match_id === selectedMatch)
+                  const hayCambios = hayCambiosStats()
+                  const haySiguiente = players.findIndex((p: any) => p.id === selected.id) < players.length - 1
+                  return (
                   <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
-                    {/* TITULAR */}
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 13 }}>
-                      <input type="checkbox" checked={matchForm.titular} onChange={e => setMatchForm((f: any) => ({ ...f, titular: e.target.checked }))} />
-                      Titular
-                    </label>
+                    {/* SITUACIÓN EN EL PARTIDO (de la convocatoria) */}
+                    {noConvocado ? (
+                      <div style={{ background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.45)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: '#FC8181' }}>🚫 No convocado</div>
+                        <div style={{ fontSize: 13, marginTop: 2 }}>
+                          {cj!.motivo || 'Sin motivo indicado'}{cj!.nota ? ' — ' + cj!.nota : ''}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                          Dato de la convocatoria. Para cambiarlo, edita la convocatoria del partido.
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                          Participación
+                          {convPartido === null && <span> · <i>sin convocatoria registrada</i></span>}
+                          {convPartido && !cj && <span> · <i>no figura en la convocatoria</i></span>}
+                          {cj && <span style={{ color: '#68D391' }}> · ✅ convocado</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className={'btn btn-sm ' + (matchForm.titular ? 'btn-gold' : 'btn-ghost')} style={{ flex: 1 }}
+                            onClick={() => setMatchForm((f: any) => ({ ...f, titular: true }))}>Titular</button>
+                          <button className={'btn btn-sm ' + (!matchForm.titular ? 'btn-gold' : 'btn-ghost')} style={{ flex: 1 }}
+                            onClick={() => setMatchForm((f: any) => ({ ...f, titular: false }))}>Suplente</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {noConvocado && !yaGuardado ? (
+                      <button className="btn btn-ghost" style={{ width: '100%' }} disabled={!haySiguiente} onClick={() => irAJugador(1)}>
+                        {haySiguiente ? 'Siguiente jugador ›' : 'Último jugador'}
+                      </button>
+                    ) : (<>
+                    {noConvocado && yaGuardado && (
+                      <div style={{ fontSize: 12, color: '#F6AD55', marginBottom: 12 }}>
+                        ⚠️ Tiene estadísticas guardadas en este partido aunque la convocatoria lo da como no convocado. Revisa cuál es correcto.
+                      </div>
+                    )}
 
                     {/* MINUTOS */}
                     <div style={{ marginBottom: 16 }}>
@@ -1270,11 +1369,23 @@ function EquipoContent() {
                       </div>
                     </details>
 
-                    <button className="btn btn-primary" style={{ width: '100%' }} onClick={saveMatchStat} disabled={savingMatch}>
-                      {savingMatch ? 'Guardando...' : (matchStats.find((s: any) => s.match_id === selectedMatch) ? 'Actualizar partido' : 'Guardar partido')}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => saveMatchStat(false)} disabled={savingMatch}>
+                        {savingMatch ? 'Guardando...' : (yaGuardado ? 'Actualizar' : 'Guardar')}
+                      </button>
+                      {haySiguiente && (
+                        <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => saveMatchStat(true)} disabled={savingMatch}>
+                          {savingMatch ? 'Guardando...' : 'Guardar y siguiente ›'}
+                        </button>
+                      )}
+                    </div>
+                    {yaGuardado && !hayCambios && (
+                      <div style={{ fontSize: 11, color: '#68D391', textAlign: 'center', marginTop: 8 }}>✓ Guardado</div>
+                    )}
+                    </>)}
                   </div>
-                )}
+                  )
+                })()}
 
                 {/* HISTORICO */}
                 {matchStats.length > 0 && (
