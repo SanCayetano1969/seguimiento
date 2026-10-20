@@ -3,8 +3,27 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, roleBadge, type Message, type AppUser } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, isToday, isYesterday, isSameDay, isSameYear, differenceInCalendarDays } from 'date-fns'
 import { es } from 'date-fns/locale'
+
+// Separador de día dentro de la conversación: «Hoy», «Ayer», «lunes 19 oct», «19 oct 2025»
+function etiquetaDia(iso: string) {
+  const d = parseISO(iso)
+  if (isToday(d)) return 'Hoy'
+  if (isYesterday(d)) return 'Ayer'
+  if (differenceInCalendarDays(new Date(), d) < 7) return format(d, "EEEE d MMM", { locale: es })
+  return isSameYear(d, new Date()) ? format(d, "d MMM", { locale: es }) : format(d, "d MMM yyyy", { locale: es })
+}
+
+// Fecha corta en el listado: «14:05» hoy, «Ayer 14:05», «lun 14:05» esta semana, «19/10 14:05» antes
+function fechaListado(iso: string) {
+  const d = parseISO(iso)
+  const h = format(d, 'HH:mm')
+  if (isToday(d)) return h
+  if (isYesterday(d)) return 'Ayer ' + h
+  if (differenceInCalendarDays(new Date(), d) < 7) return format(d, 'EEE', { locale: es }) + ' ' + h
+  return format(d, isSameYear(d, new Date()) ? 'dd/MM' : 'dd/MM/yy') + ' ' + h
+}
 
 export default function MensajeriaPage() {
   const router = useRouter()
@@ -18,6 +37,8 @@ export default function MensajeriaPage() {
   const [loading, setLoading]   = useState(true)
   const [sending, setSending]   = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const selectedRef = useRef<AppUser | null>(null)
+  useEffect(() => { selectedRef.current = selected }, [selected])
 
   useEffect(() => {
     if (!session) { router.push('/'); return }
@@ -27,7 +48,7 @@ export default function MensajeriaPage() {
     const channel = supabase.channel('messages-channel')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
         loadInbox()
-        if (selected) loadThread(selected.id)
+        if (selectedRef.current) loadThread(selectedRef.current.id)
       })
       .subscribe()
 
@@ -81,6 +102,13 @@ export default function MensajeriaPage() {
       .eq('from_user_id', userId)
       .eq('to_user_id', session.id)
       .eq('read', false)
+    // y quitar el contador en la lista sin esperar a recargar
+    setMessages(ms => ms.map(m => (m.from_user_id === userId && m.to_user_id === session.id) ? { ...m, read: true } : m))
+  }
+
+  function volverALista() {
+    setSelected(null)
+    loadInbox()
   }
 
   async function sendMessage() {
@@ -124,7 +152,7 @@ export default function MensajeriaPage() {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         {/* Header */}
         <div className="page-header">
-          <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>‹</button>
+          <button className="btn btn-ghost btn-sm" onClick={volverALista}>‹</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 600, fontSize: 15 }}>{selected.name}</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
@@ -137,20 +165,28 @@ export default function MensajeriaPage() {
 
         {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {thread.map(m => {
+          {thread.map((m, i) => {
             const mine = m.from_user_id === session.id
+            const nuevoDia = i === 0 || !isSameDay(parseISO(thread[i - 1].created_at), parseISO(m.created_at))
             return (
-              <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+              <div key={m.id} style={{ display: 'flex', flexDirection: 'column' }}>
+              {nuevoDia && (
+                <div style={{ alignSelf: 'center', margin: '8px 0 4px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 99, padding: '3px 12px', textTransform: 'capitalize' }}>
+                  {etiquetaDia(m.created_at)}
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                 <div style={{
                   maxWidth: '78%', padding: '10px 14px', borderRadius: mine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                   background: mine ? 'var(--navy-light)' : 'var(--surface2)',
                   fontSize: 14, lineHeight: 1.5,
                 }}>
-                  <p>{m.body}</p>
+                  <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</p>
                   <div style={{ fontSize: 10, color: mine ? 'rgba(255,255,255,0.5)' : 'var(--text-muted)', marginTop: 4, textAlign: 'right' }}>
                     {format(parseISO(m.created_at), "HH:mm", { locale: es })}
                   </div>
                 </div>
+              </div>
               </div>
             )
           })}
@@ -183,29 +219,52 @@ export default function MensajeriaPage() {
     )
   }
 
-  // Inbox list
+  // Inbox list: primero las conversaciones con mensajes sin leer, luego las recientes, luego el resto (A-Z)
+  const filas = users.map(u => ({ u, unread: unreadFrom(u.id), last: lastMsg(u.id) }))
+  const t = (f: any) => f.last ? parseISO(f.last.created_at).getTime() : 0
+  const sinLeer = filas.filter(f => f.unread > 0).sort((a, b) => t(b) - t(a))
+  const recientes = filas.filter(f => f.unread === 0 && f.last).sort((a, b) => t(b) - t(a))
+  const resto = filas.filter(f => !f.last)
+  const totalSinLeer = sinLeer.reduce((n, f) => n + f.unread, 0)
+  const secciones = [
+    { titulo: 'Sin leer', lista: sinLeer },
+    { titulo: 'Conversaciones', lista: recientes },
+    { titulo: 'Otros usuarios', lista: resto },
+  ].filter(sc => sc.lista.length > 0)
+
   return (
     <div className="page-content">
       <div className="page-header">
         <div style={{ fontWeight: 700, fontSize: 16 }}>💬 Mensajería</div>
+        {totalSinLeer > 0 && (
+          <span style={{ marginLeft: 'auto', background: 'var(--gold)', color: 'var(--navy-dark)', borderRadius: 99, fontSize: 12, fontWeight: 800, padding: '2px 10px' }}>
+            {totalSinLeer} sin leer
+          </span>
+        )}
       </div>
 
       {loading ? (
         <div className="empty-state"><div className="loader animate-spin" /></div>
       ) : (
         <div style={{ padding: '8px 0' }}>
-          {users.map(u => {
-            const unread = unreadFrom(u.id)
-            const last = lastMsg(u.id)
+          {secciones.map(sc => (
+            <div key={sc.titulo}>
+            <div style={{ padding: '12px 16px 4px', fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: sc.titulo === 'Sin leer' ? 'var(--gold)' : 'var(--text-muted)' }}>
+              {sc.titulo}
+            </div>
+          {sc.lista.map(({ u, unread, last }) => {
             const rb = roleBadge(u.role)
+            const previa = last ? ((last.from_user_id === session.id ? 'Tú: ' : '') + (last.body || '').replace(/\s+/g, ' ')) : ''
             return (
               <button
                 key={u.id}
                 onClick={() => setSelected(u)}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
-                  borderBottom: '1px solid var(--border)', textAlign: 'left',
+                  padding: '12px 16px 12px 13px', cursor: 'pointer', textAlign: 'left',
+                  background: unread > 0 ? 'rgba(212,175,55,0.10)' : 'none',
+                  border: 'none', borderLeft: '3px solid ' + (unread > 0 ? 'var(--gold)' : 'transparent'),
+                  borderBottom: '1px solid var(--border)',
                 }}
               >
                 {/* Avatar */}
@@ -215,13 +274,13 @@ export default function MensajeriaPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: unread > 0 ? 700 : 500, fontSize: 14, color: 'var(--text)' }}>{u.name}</span>
-                    {last && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {format(parseISO(last.created_at), "HH:mm")}
+                    {last && <span style={{ fontSize: 11, flexShrink: 0, marginLeft: 8, color: unread > 0 ? 'var(--gold)' : 'var(--text-muted)', fontWeight: unread > 0 ? 700 : 400 }}>
+                      {fechaListado(last.created_at)}
                     </span>}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      <span className="badge" style={{ background: rb.color + '22', color: rb.color, fontSize: 10 }}>{rb.label}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2, gap: 8 }}>
+                    <span style={{ fontSize: 12, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', color: unread > 0 ? 'var(--text)' : 'var(--text-muted)', fontWeight: unread > 0 ? 600 : 400 }}>
+                      {previa || <span className="badge" style={{ background: rb.color + '22', color: rb.color, fontSize: 10 }}>{rb.label}</span>}
                     </span>
                     {unread > 0 && (
                       <span style={{ background: 'var(--gold)', color: 'var(--navy-dark)', borderRadius: '99px', fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>
@@ -233,6 +292,8 @@ export default function MensajeriaPage() {
               </button>
             )
           })}
+            </div>
+          ))}
           {users.length === 0 && <div className="empty-state"><div className="icon">👤</div><div>No hay otros usuarios</div></div>}
         </div>
       )}
