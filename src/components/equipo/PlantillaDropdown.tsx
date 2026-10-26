@@ -6,10 +6,11 @@ interface Props {
   players: any[]
   teamId: string
   teamName?: string
-  playerStats?: Record<string, any>
+  playerStats?: Record<string, any>   // player_id → { pj, min, gol, asi, amarillas, rojas, paradas } en los partidos del equipo
+  invitados?: any[]                     // jugadores de otros equipos con estadísticas en partidos de este equipo (campo _equipo)
 }
 
-export default function PlantillaDropdown({ players, teamId, teamName = 'Equipo', playerStats = {} }: Props) {
+export default function PlantillaDropdown({ players, teamId, teamName = 'Equipo', playerStats = {}, invitados = [] }: Props) {
   const [open, setOpen] = useState(false)
 
   function goToPlayer(playerId: string) {
@@ -52,12 +53,13 @@ export default function PlantillaDropdown({ players, teamId, teamName = 'Equipo'
                   { header: 'ASI', key: 'asi' },
                   { header: 'Amarillas', key: 'amarillas' },
                   { header: 'Rojas', key: 'rojas' },
+                  { header: 'Paradas', key: 'paradas' },
                 ],
-                extraRows: players.map(pl => {
+                extraRows: [...players, ...invitados.filter(g => !players.some(p => p.id === g.id))].map(pl => {
                   const st = playerStats[pl.id] || {}
                   return {
                     dorsal: pl.dorsal || '',
-                    nombre: pl.name,
+                    nombre: pl.name + (pl._equipo ? ' (invitado · ' + pl._equipo + ')' : ''),
                     posicion: pl.position || '',
                     pie: pl.foot || '',
                     anyo: pl.birth_year || '',
@@ -67,6 +69,7 @@ export default function PlantillaDropdown({ players, teamId, teamName = 'Equipo'
                     asi: st.asi || 0,
                     amarillas: st.amarillas || 0,
                     rojas: st.rojas || 0,
+                    paradas: st.paradas || 0,
                   }
                 }),
               }}
