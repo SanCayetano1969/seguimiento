@@ -79,7 +79,7 @@ function ordenarPorDorsal(ps: any[]) {
 }
 
 // Formulario de estadísticas de un partido: vacío o a partir de la fila guardada
-const FORM_STATS_VACIO = { titular: true, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, paradas: 0, cuartos: [] as number[] }
+const FORM_STATS_VACIO = { titular: null as boolean | null, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, paradas: 0, cuartos: [] as number[] }
 function formDesdeStat(e: any) {
   if (!e) return { ...FORM_STATS_VACIO }
   return {
@@ -604,6 +604,10 @@ function EquipoContent() {
 
   async function saveMatchStat(yPasarAlSiguiente = false) {
     if (!selected || !selectedMatch || !session) return
+    if (matchForm.titular !== true && matchForm.titular !== false) {
+      alert('Elige si ' + (selected.name || 'el jugador') + ' fue titular o suplente')
+      return
+    }
     setSavingMatch(true)
     const existing = matchStats.find((s: any) => s.match_id === selectedMatch)
     const payload = {
@@ -612,7 +616,7 @@ function EquipoContent() {
       // equipo del PARTIDO (un invitado juega con otro equipo del club)
       team_id: matches.find((m: any) => m.id === selectedMatch)?.team_id || selected.team_id,
       created_by: session.id,
-      titular: matchForm.titular || false,
+      titular: matchForm.titular === true,
       minutos: parseInt(matchForm.minutos) || 0,
       goles: parseInt(matchForm.goles) || 0,
       asistencias: parseInt(matchForm.asistencias) || 0,
@@ -1333,11 +1337,14 @@ function EquipoContent() {
                           {cj && <span style={{ color: '#68D391' }}> · ✅ convocado</span>}
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button className={'btn btn-sm ' + (matchForm.titular ? 'btn-gold' : 'btn-ghost')} style={{ flex: 1 }}
+                          <button className={'btn btn-sm ' + (matchForm.titular === true ? 'btn-gold' : 'btn-ghost')} style={{ flex: 1 }}
                             onClick={() => setMatchForm((f: any) => ({ ...f, titular: true }))}>Titular</button>
-                          <button className={'btn btn-sm ' + (!matchForm.titular ? 'btn-gold' : 'btn-ghost')} style={{ flex: 1 }}
+                          <button className={'btn btn-sm ' + (matchForm.titular === false ? 'btn-gold' : 'btn-ghost')} style={{ flex: 1 }}
                             onClick={() => setMatchForm((f: any) => ({ ...f, titular: false }))}>Suplente</button>
                         </div>
+                        {matchForm.titular !== true && matchForm.titular !== false && (
+                          <div style={{ fontSize: 11, color: '#F6AD55', marginTop: 6 }}>Elige Titular o Suplente para poder guardar</div>
+                        )}
                       </div>
                     )}
 
@@ -1372,7 +1379,7 @@ function EquipoContent() {
                         />
                       </div>
                     </div>
-                    {!matchForm.titular && !(parseInt(matchForm.minutos) > 0) && !(matchForm.cuartos || []).length && (
+                    {matchForm.titular === false && !(parseInt(matchForm.minutos) > 0) && !(matchForm.cuartos || []).length && (
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
                         Suplente sin minutos ni periodos: no le cuenta como partido jugado.
                       </div>
