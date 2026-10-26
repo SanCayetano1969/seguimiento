@@ -14,6 +14,7 @@ import CabeceraTecnicos from '@/components/equipo/CabeceraTecnicos'
 import PlantillaDropdown from '@/components/equipo/PlantillaDropdown'
 import EstadisticasEquipo from '@/components/equipo/EstadisticasEquipo'
 import Convocatorias from '@/components/equipo/Convocatorias'
+import { sumarStats, totalesPorJugador, esPortero } from '@/lib/estadisticas'
 
 const CRITERIA = {
   fisica: ['Velocidad','Resistencia','Fuerza','Coordinacion','Agilidad','Reaccion'],
@@ -78,7 +79,7 @@ function ordenarPorDorsal(ps: any[]) {
 }
 
 // Formulario de estadísticas de un partido: vacío o a partir de la fila guardada
-const FORM_STATS_VACIO = { titular: true, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, cuartos: [] as number[] }
+const FORM_STATS_VACIO = { titular: true, minutos: 0, goles: 0, asistencias: 0, tiros: 0, tiros_puerta: 0, recuperaciones: 0, intercepciones: 0, entradas: 0, pases_completos: 0, pases_fallados: 0, faltas_cometidas: 0, faltas_recibidas: 0, amarillas: 0, rojas: 0, paradas: 0, cuartos: [] as number[] }
 function formDesdeStat(e: any) {
   if (!e) return { ...FORM_STATS_VACIO }
   return {
@@ -86,7 +87,7 @@ function formDesdeStat(e: any) {
     tiros: e.tiros, tiros_puerta: e.tiros_puerta, recuperaciones: e.recuperaciones, intercepciones: e.intercepciones,
     entradas: e.entradas, pases_completos: e.pases_completos, pases_fallados: e.pases_fallados,
     faltas_cometidas: e.faltas_cometidas, faltas_recibidas: e.faltas_recibidas,
-    amarillas: e.amarillas, rojas: e.rojas, cuartos: e.cuartos_jugados || [],
+    amarillas: e.amarillas, rojas: e.rojas, paradas: e.paradas || 0, cuartos: e.cuartos_jugados || [],
   }
 }
 
@@ -337,6 +338,12 @@ function EquipoContent() {
   // Convocatoria del partido elegido en Estadísticas: player_id → { estado, motivo, nota }.
   // null = ese partido no tiene convocatoria registrada.
   const [convPartido, setConvPartido] = useState<Record<string, { estado: string, motivo: string, nota: string }> | null>(null)
+  // Jugadores de otros equipos del club que juegan el partido elegido en Estadísticas
+  // (convocados como invitados o con estadísticas ya guardadas). Se recorren después de la plantilla.
+  const [invitadosPartido, setInvitadosPartido] = useState<any[]>([])
+  // Estadísticas de todos los partidos del equipo (para exportar la plantilla con estadísticas)
+  const [statsEquipo, setStatsEquipo] = useState<any[]>([])
+  const [invitadosEquipo, setInvitadosEquipo] = useState<any[]>([])
   const [showAddMatch, setShowAddMatch] = useState(false)
   const [newMatch, setNewMatch] = useState<{rival:string,tipo:string,fecha:string,local:boolean,jornada:string}>({ rival:'', tipo:'liga', fecha:'', local:true, jornada:'' })
   const [savingNewMatch, setSavingNewMatch] = useState(false)
@@ -357,7 +364,7 @@ function EquipoContent() {
 
   async function loadTeamData(id: string) {
     setLoading(true)
-    supabase.from('matches').select('*').eq('team_id', id).order('jornada', { ascending: true }).then(({ data }) => { setTeamMatches(data || []); setMatches(data || []) })
+    supabase.from('matches').select('*').eq('team_id', id).order('jornada', { ascending: true }).then(({ data }) => { setTeamMatches(data || []); setMatches(data || []); cargarStatsEquipo(id, data || []) })
     const [{ data: t }, { data: pl }, { data: j }] = await Promise.all([
       supabase.from('teams').select('*').eq('id', id).single(),
       supabase.from('players').select('*').eq('team_id', id).order('dorsal'),
@@ -374,6 +381,31 @@ function EquipoContent() {
       const found = pl.find((p: any) => p.id === playerParam)
       if (found) openPlayer(found)
     }
+  }
+
+  // Todas las estadísticas de los partidos del equipo, incluidos los invitados de otros equipos
+  async function cargarStatsEquipo(id: string, ms: any[]) {
+    const ids = ms.map((m: any) => m.id)
+    if (!ids.length) { setStatsEquipo([]); setInvitadosEquipo([]); return }
+    const { data: st } = await supabase.from('player_match_stats').select('*').in('match_id', ids)
+    setStatsEquipo(st || [])
+    const { data: propios } = await supabase.from('players').select('id').eq('team_id', id)
+    const propiosSet = new Set((propios || []).map((p: any) => p.id))
+    const ajenos = Array.from(new Set((st || []).map((s: any) => s.player_id).filter((pid: string) => !propiosSet.has(pid))))
+    setInvitadosEquipo(await cargarJugadoresConEquipo(ajenos))
+  }
+
+  // Jugadores por id con el nombre de su equipo (campo _equipo)
+  async function cargarJugadoresConEquipo(ids: string[]) {
+    if (!ids.length) return []
+    const { data: ps } = await supabase.from('players').select('*').in('id', ids)
+    const tIds = Array.from(new Set((ps || []).map((p: any) => p.team_id).filter(Boolean)))
+    const tn: Record<string, string> = {}
+    if (tIds.length) {
+      const { data: ts } = await supabase.from('teams').select('id, name').in('id', tIds)
+      ;(ts || []).forEach((t: any) => { tn[t.id] = t.name })
+    }
+    return ordenarPorDorsal((ps || []).map((p: any) => ({ ...p, _equipo: tn[p.team_id] || 'Otro equipo' })))
   }
 
   async function saveNewPlayer() {
@@ -456,8 +488,10 @@ function EquipoContent() {
     const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', p.id)
     // Partidos jugados como invitado con otro equipo del club: hay que traerlos aparte
     // o el histórico del jugador los ocultaría (aunque sí cuenten en los totales).
-    const faltan = Array.from(new Set((msData || [])
-      .map((s: any) => s.match_id)
+    // Al pasar a un invitado desde Estadísticas, el partido elegido es de OTRO equipo: también hay que traerlo.
+    const idsPartidos = (msData || []).map((s: any) => s.match_id)
+    if (opts?.mantenerPestana && selectedMatch) idsPartidos.push(selectedMatch)
+    const faltan = Array.from(new Set(idsPartidos
       .filter((id: string) => id && !(mData || []).some((m: any) => m.id === id))))
     let extras: any[] = []
     if (faltan.length) {
@@ -478,11 +512,17 @@ function EquipoContent() {
     }
   }
 
+  // Lista que recorre «anterior / siguiente»: la plantilla y, en Estadísticas con un partido
+  // elegido, después los invitados de otros equipos de ese partido.
+  const navPlayers = (tab === 'partidos' && selectedMatch && invitadosPartido.length)
+    ? [...players, ...invitadosPartido.filter((g: any) => !players.some((p: any) => p.id === g.id))]
+    : players
+
   // Navegar al jugador anterior/siguiente de la plantilla sin volver al listado
   async function irAJugador(paso: number) {
     if (!selected) return
-    const i = players.findIndex((p: any) => p.id === selected.id)
-    const destino = players[i + paso]
+    const i = navPlayers.findIndex((p: any) => p.id === selected.id)
+    const destino = navPlayers[i + paso]
     if (!destino) return
     if (tab === 'partidos' && selectedMatch && hayCambiosStats()) {
       if (!window.confirm('Hay estadísticas sin guardar de ' + selected.name + '. ¿Salir sin guardar?')) return
@@ -507,15 +547,26 @@ function EquipoContent() {
       .then(({ data }) => {
         if (!vivo) return
         const conv = data?.[0]
-        if (!conv) { setConvPartido(null); return }
         const mapa: Record<string, { estado: string, motivo: string, nota: string }> = {}
-        ;(conv.convocatoria_jugadores || []).forEach((j: any) => {
+        ;(conv?.convocatoria_jugadores || []).forEach((j: any) => {
           mapa[j.player_id] = { estado: j.estado || 'convocado', motivo: j.motivo_no_disponible || '', nota: j.nota_castigo || '' }
         })
-        setConvPartido(mapa)
+        setConvPartido(conv ? mapa : null)
+        cargarInvitados(Object.keys(mapa).filter(pid => mapa[pid].estado === 'convocado'))
       })
+    // Invitados = convocados de otros equipos + quien tenga estadísticas en el partido sin ser de la plantilla.
+    // Solo cuando el partido es de este equipo (no al ver un partido de un invitado con su equipo).
+    async function cargarInvitados(convocados: string[]) {
+      const esDelEquipo = teamMatches.some((m: any) => m.id === selectedMatch)
+      if (!esDelEquipo) { if (vivo) setInvitadosPartido([]); return }
+      const { data: st } = await supabase.from('player_match_stats').select('player_id').eq('match_id', selectedMatch)
+      const propios = new Set(players.map((p: any) => p.id))
+      const ids = Array.from(new Set([...convocados, ...(st || []).map((s: any) => s.player_id)])).filter(pid => !propios.has(pid))
+      const lista = await cargarJugadoresConEquipo(ids)
+      if (vivo) setInvitadosPartido(lista)
+    }
     return () => { vivo = false }
-  }, [selectedMatch])
+  }, [selectedMatch, teamMatches, players])
 
 
   async function saveResult() {
@@ -558,7 +609,8 @@ function EquipoContent() {
     const payload = {
       match_id: selectedMatch,
       player_id: selected.id,
-      team_id: selected.team_id,
+      // equipo del PARTIDO (un invitado juega con otro equipo del club)
+      team_id: matches.find((m: any) => m.id === selectedMatch)?.team_id || selected.team_id,
       created_by: session.id,
       titular: matchForm.titular || false,
       minutos: parseInt(matchForm.minutos) || 0,
@@ -575,6 +627,7 @@ function EquipoContent() {
       faltas_recibidas: parseInt(matchForm.faltas_recibidas) || 0,
       amarillas: parseInt(matchForm.amarillas) || 0,
       rojas: parseInt(matchForm.rojas) || 0,
+      paradas: parseInt(matchForm.paradas) || 0,
       cuartos_jugados: matchForm.cuartos || [],
     }
     if (existing) {
@@ -584,10 +637,11 @@ function EquipoContent() {
     }
     const { data: msData } = await supabase.from('player_match_stats').select('*').eq('player_id', selected.id)
     setMatchStats(msData || [])
+    if (team) cargarStatsEquipo(team.id, teamMatches)   // refrescar los totales del equipo
     setSavingMatch(false)
     if (yPasarAlSiguiente) {
-      const i = players.findIndex((p: any) => p.id === selected.id)
-      const destino = players[i + 1]
+      const i = navPlayers.findIndex((p: any) => p.id === selected.id)
+      const destino = navPlayers[i + 1]
       if (destino) await openPlayer(destino, { mantenerPestana: true })
     }
   }
@@ -855,15 +909,15 @@ function EquipoContent() {
 
         {/* Anterior / siguiente jugador (mantiene la pestaña y el partido elegido) */}
         {(() => {
-          const i = players.findIndex((p: any) => p.id === selected.id)
-          if (i < 0 || players.length < 2) return null
-          const ant = players[i - 1], sig = players[i + 1]
-          const etiqueta = (p: any) => (p.dorsal != null ? '#' + p.dorsal + ' ' : '') + (p.name || '').split(' ')[0]
+          const i = navPlayers.findIndex((p: any) => p.id === selected.id)
+          if (i < 0 || navPlayers.length < 2) return null
+          const ant = navPlayers[i - 1], sig = navPlayers[i + 1]
+          const etiqueta = (p: any) => (p.dorsal != null ? '#' + p.dorsal + ' ' : '') + (p.name || '').split(' ')[0] + (p._equipo ? ' (' + p._equipo + ')' : '')
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px 0' }}>
               <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'flex-start', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', opacity: ant ? 1 : 0.35 }}
                 disabled={!ant} onClick={() => irAJugador(-1)}>‹ {ant ? etiqueta(ant) : ''}</button>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{i + 1} / {players.length}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{i + 1} / {navPlayers.length}</span>
               <button className="btn btn-ghost btn-sm" style={{ flex: 1, justifyContent: 'flex-end', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', opacity: sig ? 1 : 0.35 }}
                 disabled={!sig} onClick={() => irAJugador(1)}>{sig ? etiqueta(sig) : ''} ›</button>
             </div>
@@ -1022,14 +1076,8 @@ function EquipoContent() {
 
             {/* TOTALES TEMPORADA */}
             {matchStats.length > 0 && (() => {
-              const tot = matchStats.reduce((acc: any, s: any) => ({
-                minutos: acc.minutos + (s.minutos || 0),
-                goles: acc.goles + (s.goles || 0),
-                asistencias: acc.asistencias + (s.asistencias || 0),
-                amarillas: acc.amarillas + (s.amarillas || 0),
-                rojas: acc.rojas + (s.rojas || 0),
-                partidos: acc.partidos + 1,
-              }), { minutos: 0, goles: 0, asistencias: 0, amarillas: 0, rojas: 0, partidos: 0 })
+              const t = sumarStats(matchStats)
+              const tot = { ...t, partidos: t.pj }
               return (
                 <div style={{ margin: '16px 0', padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Estadísticas temporada</div>
@@ -1041,6 +1089,7 @@ function EquipoContent() {
                       { label: 'Asist.', val: tot.asistencias, icon: '🌟' },
                       { label: 'Amarillas', val: tot.amarillas, icon: '🟨' },
                       { label: 'Rojas', val: tot.rojas, icon: '🟥' },
+                      ...(tot.paradas > 0 || esPortero(selected) ? [{ label: 'Paradas', val: tot.paradas, icon: '🧤' }] : []),
                     ].map(item => (
                       <div key={item.label} style={{ textAlign: 'center', minWidth: 52 }}>
                         <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text)' }}>{item.val}</div>
@@ -1190,23 +1239,8 @@ function EquipoContent() {
 
             {/* TOTALES ACUMULADOS */}
             {matchStats.length > 0 && (() => {
-              const tot = matchStats.reduce((acc: any, s: any) => ({
-                partidos: acc.partidos + 1,
-                minutos: acc.minutos + (s.minutos || 0),
-                goles: acc.goles + (s.goles || 0),
-                asistencias: acc.asistencias + (s.asistencias || 0),
-                amarillas: acc.amarillas + (s.amarillas || 0),
-                rojas: acc.rojas + (s.rojas || 0),
-                tiros: acc.tiros + (s.tiros || 0),
-                tiros_puerta: acc.tiros_puerta + (s.tiros_puerta || 0),
-                recuperaciones: acc.recuperaciones + (s.recuperaciones || 0),
-                intercepciones: acc.intercepciones + (s.intercepciones || 0),
-                entradas: acc.entradas + (s.entradas || 0),
-                pases_completos: acc.pases_completos + (s.pases_completos || 0),
-                pases_fallados: acc.pases_fallados + (s.pases_fallados || 0),
-                faltas_cometidas: acc.faltas_cometidas + (s.faltas_cometidas || 0),
-                faltas_recibidas: acc.faltas_recibidas + (s.faltas_recibidas || 0),
-              }), { partidos:0,minutos:0,goles:0,asistencias:0,amarillas:0,rojas:0,tiros:0,tiros_puerta:0,recuperaciones:0,intercepciones:0,entradas:0,pases_completos:0,pases_fallados:0,faltas_cometidas:0,faltas_recibidas:0 })
+              const t = sumarStats(matchStats)
+              const tot = { ...t, partidos: t.pj }
               return (
                 <div style={{ marginBottom: 20, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Totales temporada</div>
@@ -1218,6 +1252,7 @@ function EquipoContent() {
                       { label: 'ASI', val: tot.asistencias },
                       { label: '🟨', val: tot.amarillas },
                       { label: '🟥', val: tot.rojas },
+                      ...(tot.paradas > 0 || esPortero(selected) ? [{ label: '🧤', val: tot.paradas }] : []),
                     ].map(item => (
                       <div key={item.label} style={{ textAlign: 'center', minWidth: 44, padding: '6px 8px', background: 'var(--surface)', borderRadius: 8 }}>
                         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{item.val}</div>
@@ -1264,7 +1299,7 @@ function EquipoContent() {
                 >
                   <option value="">-- Seleccionar partido --</option>
                   {matches.map((m: any) => (
-                    <option key={m.id} value={m.id}>J{m.jornada} - {m.local ? 'San Cayetano vs ' + m.rival : m.rival + ' vs San Cayetano'} {m.fecha ? '(' + m.fecha + ')' : ''}</option>
+                    <option key={m.id} value={m.id}>{esLiga(m) && m.jornada ? 'J' + m.jornada : tipoInfo(m.tipo).short} - {m.local ? 'San Cayetano vs ' + m.rival : m.rival + ' vs San Cayetano'} {m.fecha ? '(' + m.fecha + ')' : ''}{m.otro_equipo_name ? ' · con ' + m.otro_equipo_name : ''}</option>
                   ))}
                 </select>
 
@@ -1273,7 +1308,9 @@ function EquipoContent() {
                   const noConvocado = !!cj && cj.estado !== 'convocado'
                   const yaGuardado = !!matchStats.find((s: any) => s.match_id === selectedMatch)
                   const hayCambios = hayCambiosStats()
-                  const haySiguiente = players.findIndex((p: any) => p.id === selected.id) < players.length - 1
+                  const iNav = navPlayers.findIndex((p: any) => p.id === selected.id)
+                  const haySiguiente = iNav >= 0 && iNav < navPlayers.length - 1
+                  const siguienteEsInvitado = haySiguiente && !!navPlayers[iNav + 1]?._equipo
                   return (
                   <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
                     {/* SITUACIÓN EN EL PARTIDO (de la convocatoria) */}
@@ -1335,6 +1372,11 @@ function EquipoContent() {
                         />
                       </div>
                     </div>
+                    {!matchForm.titular && !(parseInt(matchForm.minutos) > 0) && !(matchForm.cuartos || []).length && (
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
+                        Suplente sin minutos ni periodos: no le cuenta como partido jugado.
+                      </div>
+                    )}
                     {/* OBLIGATORIOS */}
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Obligatorios</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
@@ -1343,6 +1385,7 @@ function EquipoContent() {
                         { key: 'asistencias', label: 'Asistencias' },
                         { key: 'amarillas', label: 'Amarillas' },
                         { key: 'rojas', label: 'Rojas' },
+                        ...(esPortero(selected) || (matchForm.paradas || 0) > 0 ? [{ key: 'paradas', label: '🧤 Paradas' }] : []),
                       ].map(({ key, label }) => (
                         <div key={key}>
                           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
@@ -1388,7 +1431,7 @@ function EquipoContent() {
                       </button>
                       {haySiguiente && (
                         <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => saveMatchStat(true)} disabled={savingMatch}>
-                          {savingMatch ? 'Guardando...' : 'Guardar y siguiente ›'}
+                          {savingMatch ? 'Guardando...' : (siguienteEsInvitado ? 'Guardar y siguiente (invitado) ›' : 'Guardar y siguiente ›')}
                         </button>
                       )}
                     </div>
@@ -1819,24 +1862,18 @@ function EquipoContent() {
               players={players}
               teamId={team.id}
               teamName={team?.name || ''}
-              playerStats={Object.fromEntries(players.map(p => {
-                const pStats = matchStats.filter((m: any) => m.player_id === p.id)
-                return [p.id, {
-                  pj: pStats.length,
-                  min: pStats.reduce((s: number, m: any) => s + (m.minutos_jugados || 0), 0),
-                  gol: pStats.reduce((s: number, m: any) => s + (m.goles || 0), 0),
-                  asi: pStats.reduce((s: number, m: any) => s + (m.asistencias || 0), 0),
-                  amarillas: pStats.reduce((s: number, m: any) => s + (m.tarjetas_amarillas || 0), 0),
-                  rojas: pStats.reduce((s: number, m: any) => s + (m.tarjetas_rojas || 0), 0),
-                }]
-              }))}
+              invitados={invitadosEquipo}
+              playerStats={Object.fromEntries(Object.entries(totalesPorJugador(statsEquipo)).map(([pid, t]) => [pid, {
+                pj: t.pj, min: t.minutos, gol: t.goles, asi: t.asistencias,
+                amarillas: t.amarillas, rojas: t.rojas, paradas: t.paradas,
+              }]))}
             />}
 
       {/* ESTADISTICAS EQUIPO */}
-      {team && <EstadisticasEquipo team={team} matches={matches} />}
+      {team && <EstadisticasEquipo team={team} matches={teamMatches} players={players} statsJugadores={statsEquipo} invitados={invitadosEquipo} />}
 
       {/* CONVOCATORIAS */}
-      {team && <Convocatorias team={team} players={players} matches={matches} />}
+      {team && <Convocatorias team={team} players={players} matches={teamMatches} />}
       <BottomNav role={session.role} />
     </div>
   )
