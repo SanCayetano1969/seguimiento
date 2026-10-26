@@ -8,6 +8,12 @@ const supabase = createClient(
 
 export const dynamic = 'force-dynamic'
 
+// Asistencia a entrenos: «85% (11/13)» o «—» si no hay listas (informes antiguos no traen el dato)
+function asis(r: any): string {
+  if (!r || r.pct == null) return '—'
+  return r.pct + '% <span style="color:#666;font-size:10px">(' + r.presentes + '/' + (r.sesiones - r.justificadas - r.lesionado) + ')</span>'
+}
+
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 export async function GET(req: Request) {
@@ -118,6 +124,7 @@ export async function GET(req: Request) {
             <th>Pos.</th>
             <th colspan="5" style="text-align:center;background:#e8f0ff">Temporada</th>
             <th colspan="5" style="text-align:center;background:#fff3cd">Mes</th>
+            <th colspan="2" style="text-align:center;background:#e6f7ec">Asistencia entrenos</th>
             <th>Convocatorias ${mesNombre}</th>
           </tr>
           <tr>
@@ -132,6 +139,8 @@ export async function GET(req: Request) {
             <th style="background:#fff3cd">GOL</th>
             <th style="background:#fff3cd">ASI</th>
             <th style="background:#fff3cd">🟨🟥</th>
+            <th style="background:#e6f7ec">Mes</th>
+            <th style="background:#e6f7ec">Temp.</th>
             <th></th>
           </tr>
         </thead>
@@ -161,6 +170,8 @@ export async function GET(req: Request) {
               <td style="background:#fff3cd">${m2.goles || 0}</td>
               <td style="background:#fff3cd">${m2.asistencias || 0}</td>
               <td style="background:#fff3cd">${m2.amarillas || 0}/${m2.rojas || 0}</td>
+              <td style="background:#e6f7ec">${asis(j.asistencia_mes)}</td>
+              <td style="background:#e6f7ec">${asis(j.asistencia_temporada)}</td>
               <td>${convs || '<span style="color:#ccc">—</span>'}</td>
             </tr>`
           }).join('')}
