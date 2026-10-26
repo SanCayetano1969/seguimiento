@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, clearSession, scoreColor, type Announcement } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
+import AsistenciaClub from '@/components/AsistenciaClub'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer
@@ -529,6 +530,8 @@ export default function ClubPage() {
                 )
               })()}
               </div>
+
+              <AsistenciaClub />
 
               {/* Solicitudes pendientes */}
               {requests.length > 0 && (
