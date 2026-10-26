@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { supabase, getSession, type Event, type Team } from '@/lib/supabase'
 import { canEdit as getCanEdit } from '@/lib/permissions'
 import BottomNav from '@/components/BottomNav'
+import PasarLista from '@/components/PasarLista'
+import { puedePasarLista } from '@/lib/asistencia'
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday, addDays, addWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -97,6 +99,9 @@ export default function AgendaPage() {
   const [form, setForm]       = useState<Partial<Event & { time_str: string, recurrence: string, recurrence_end: string, recurrence_days: number[] }>>({})
   const [saving, setSaving]   = useState(false)
   const [markingEvent, setMarkingEvent] = useState<string|null>(null)
+  const [listaEvent, setListaEvent] = useState<any>(null)
+  // Asistencia ya pasada de los entrenos del día elegido: event_id → { total, presentes }
+  const [listas, setListas] = useState<Record<string, { total: number, presentes: number }>>({})
 
   async function toggleSinInstalacion(ev: any) {
     setMarkingEvent(ev.id)
@@ -224,6 +229,20 @@ export default function AgendaPage() {
 
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
   const dayEvents = selectedDay ? events.filter(e => isSameDay(parseISO(e.date), selectedDay)) : []
+  const idsDia = dayEvents.filter(e => e.type === 'entrenamiento').map(e => e.id).join(',')
+  useEffect(() => { cargarListas() }, [idsDia])
+  async function cargarListas() {
+    const ids = idsDia ? idsDia.split(',') : []
+    if (!ids.length) { setListas({}); return }
+    const { data } = await supabase.from('asistencia_entrenos').select('event_id, estado').in('event_id', ids)
+    const m: Record<string, { total: number, presentes: number }> = {}
+    ;(data || []).forEach((r: any) => {
+      m[r.event_id] = m[r.event_id] || { total: 0, presentes: 0 }
+      m[r.event_id].total++
+      if (r.estado === 'presente') m[r.event_id].presentes++
+    })
+    setListas(m)
+  }
   const startPad = (startOfMonth(month).getDay() + 6) % 7
 
   const toggleDay = (d: number) => {
@@ -332,6 +351,12 @@ export default function AgendaPage() {
                     <span className="badge" style={{ background: 'var(--surface3)', color: 'var(--text-muted)', marginTop: 4, fontSize: 11 }}>Todo el club</span>
                   )}
                   {ev.notes && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{ev.notes}</p>}
+                  {puedePasarLista(session, ev) && (
+                    <button className={'btn btn-sm ' + (listas[ev.id] ? 'btn-ghost' : 'btn-gold')} style={{ marginTop: 6, fontSize: 12 }}
+                      onClick={() => setListaEvent(ev)}>
+                      📋 {listas[ev.id] ? 'Lista: ' + listas[ev.id].presentes + '/' + listas[ev.id].total + ' · corregir' : 'Pasar lista'}
+                    </button>
+                  )}
                 </div>
                 {canEdit && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -356,6 +381,8 @@ export default function AgendaPage() {
           </div>
         )}
       </div>
+
+      {listaEvent && <PasarLista event={listaEvent} onClose={() => setListaEvent(null)} onSaved={cargarListas} />}
 
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
