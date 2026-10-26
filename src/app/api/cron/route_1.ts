@@ -1,0 +1,250 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { sumarStats } from '@/lib/estadisticas'
+import { resumenAsistencia, traerTodas } from '@/lib/asistencia'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+
+  const now = new Date()
+  // Si se pasan parámetros, usar esos (permite generar informe del mes actual)
+  const mesParam = searchParams.get('mes')
+  const annoParam = searchParams.get('anno')
+  const mes = mesParam ? parseInt(mesParam) : (now.getMonth() === 0 ? 12 : now.getMonth())
+  const anno = annoParam ? parseInt(annoParam) : (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear())
+  const primerDiaMes = new Date(anno, mes - 1, 1).toISOString()
+  const ultimoDiaMes = new Date(anno, mes, 0, 23, 59, 59).toISOString()
+
+  // Obtener todos los equipos
+  const { data: teams } = await supabase.from('teams').select('*').order('name')
+  if (!teams?.length) return NextResponse.json({ ok: true, msg: 'No teams' })
+
+  const informes = []
+
+  for (const team of teams) {
+    // 1. Todos los partidos de la temporada con resultado
+    const { data: allMatches } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('team_id', team.id)
+      .not('resultado_propio', 'is', null)
+      .order('fecha', { ascending: true })
+
+    const temporada = (allMatches || []).reduce((acc: any, m: any) => {
+      acc.pj++
+      const gf = m.resultado_propio ?? 0
+      const gc = m.resultado_rival ?? 0
+      acc.gf += gf
+      acc.gc += gc
+      if (gf > gc) acc.pg++
+      else if (gf === gc) acc.pe++
+      else acc.pp++
+      return acc
+    }, { pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0 })
+
+    // 2. Partidos del mes con stats de equipo
+    const { data: matchesMes } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('team_id', team.id)
+      .gte('fecha', primerDiaMes.split('T')[0])
+      .lte('fecha', ultimoDiaMes.split('T')[0])
+      .order('fecha', { ascending: true })
+
+    const matchIdsMes = (matchesMes || []).map((m: any) => m.id)
+
+    const { data: statsMes } = matchIdsMes.length > 0
+      ? await supabase.from('match_stats_team').select('*').in('match_id', matchIdsMes)
+      : { data: [] }
+
+    // Estadísticas de jugadores de los partidos del mes (incluye invitados de otros equipos)
+    const { data: filasMes } = matchIdsMes.length > 0
+      ? await supabase.from('player_match_stats').select('*').in('match_id', matchIdsMes)
+      : { data: [] }
+
+    // Las tarjetas de cada partido salen de las fichas de los jugadores; la cuenta manual
+    // (match_stats_team) solo se usa si el partido no tiene fichas.
+    const partidosMes = (matchesMes || []).map((m: any) => {
+      const manual = (statsMes || []).find((s: any) => s.match_id === m.id) || null
+      const filas = (filasMes || []).filter((s: any) => s.match_id === m.id)
+      if (!filas.length) return { ...m, stats: manual }
+      const t = sumarStats(filas)
+      return {
+        ...m,
+        stats: {
+          ...(manual || {}),
+          goles_marcados: manual?.goles_marcados ?? m.resultado_propio ?? 0,
+          goles_encajados: manual?.goles_encajados ?? m.resultado_rival ?? 0,
+          tarjetas_amarillas: t.amarillas,
+          tarjetas_rojas: t.rojas,
+          goles_jugadores: t.goles,
+        },
+      }
+    })
+
+    // 3. Jugadores del equipo
+    const { data: players } = await supabase
+      .from('players')
+      .select('*')
+      .eq('team_id', team.id)
+      .order('dorsal', { ascending: true })
+
+    const playerIds = (players || []).map((p: any) => p.id)
+
+    // Stats de toda la temporada por jugador
+    const { data: allPlayerStats } = playerIds.length > 0
+      ? await supabase.from('player_match_stats').select('*').in('player_id', playerIds)
+      : { data: [] }
+
+    // Stats del mes por jugador (partidos de este equipo)
+    const monthPlayerStats = filasMes || []
+
+    // Invitados: jugadores de otros equipos del club que han jugado este mes con este equipo
+    const idsInvitados = Array.from(new Set(monthPlayerStats.map((s: any) => s.player_id)))
+      .filter((pid: any) => !playerIds.includes(pid))
+    const { data: invitadosData } = idsInvitados.length > 0
+      ? await supabase.from('players').select('*, teams(name)').in('id', idsInvitados)
+      : { data: [] }
+    // Sus estadísticas de temporada con ESTE equipo (todos los partidos del equipo)
+    const { data: idsPartidosEquipo } = await supabase.from('matches').select('id').eq('team_id', team.id)
+    const { data: statsInvitadosEquipo } = idsInvitados.length > 0 && (idsPartidosEquipo || []).length > 0
+      ? await supabase.from('player_match_stats').select('*').in('player_id', idsInvitados).in('match_id', (idsPartidosEquipo || []).map((m: any) => m.id))
+      : { data: [] }
+
+    // Convocatorias del mes
+    const { data: convocatoriasMes } = await supabase
+      .from('convocatorias')
+      .select('*, convocatoria_jugadores(player_id, estado, motivo_no_disponible, nota_castigo)')
+      .eq('team_id', team.id)
+      .gte('created_at', primerDiaMes)
+      .lte('created_at', ultimoDiaMes)
+
+    // Asistencia a entrenos del equipo (toda la temporada; el mes se filtra por la fecha del entreno)
+    const asistencia = await traerTodas((d, h) => supabase.from('asistencia_entrenos')
+      .select('player_id, estado, events(date, sin_instalacion)').eq('team_id', team.id).order('id').range(d, h))
+    const mesTxt = anno + '-' + String(mes).padStart(2, '0')
+
+    const jugadores = (players || []).map((p: any) => {
+      const statsTemporada = sumarStats((allPlayerStats || []).filter((s: any) => s.player_id === p.id))
+      const statsMesJugador = sumarStats(monthPlayerStats.filter((s: any) => s.player_id === p.id))
+
+      // Convocatorias del mes para este jugador
+      const convocatoriasJugador = (convocatoriasMes || []).map((c: any) => {
+        const cj = (c.convocatoria_jugadores || []).find((x: any) => x.player_id === p.id)
+        const match = matchesMes?.find((m: any) =>
+          m.jornada === c.jornada_numero || m.rival === c.rival
+        )
+        return {
+          jornada: c.jornada_numero,
+          rival: c.rival,
+          fecha: c.fecha,
+          estado: cj?.estado || 'no_convocado',
+          motivo: cj?.motivo_no_disponible || null,
+          nota_castigo: cj?.nota_castigo || null,
+        }
+      })
+
+      return {
+        id: p.id,
+        dorsal: p.dorsal,
+        nombre: p.name,
+        posicion: p.position,
+        temporada: statsTemporada,
+        mes: statsMesJugador,
+        asistencia_temporada: resumenAsistencia(asistencia.filter((a: any) => a.player_id === p.id)),
+        asistencia_mes: resumenAsistencia(asistencia.filter((a: any) => a.player_id === p.id && (a.events?.date || '').startsWith(mesTxt))),
+        convocatorias_mes: convocatoriasJugador,
+      }
+    })
+
+    // Invitados al final de la lista (temporada = sus partidos con este equipo)
+    ;(invitadosData || []).forEach((p: any) => {
+      jugadores.push({
+        id: p.id,
+        dorsal: p.dorsal,
+        nombre: p.name + ' (invitado · ' + ((p.teams as any)?.name || 'otro equipo') + ')',
+        posicion: p.position,
+        temporada: sumarStats((statsInvitadosEquipo || []).filter((s: any) => s.player_id === p.id)),
+        mes: sumarStats(monthPlayerStats.filter((s: any) => s.player_id === p.id)),
+        convocatorias_mes: [],
+      } as any)
+    })
+
+    // Sesiones psicólogo del mes
+    const inicioMes = new Date(anno, mes - 1, 1).toISOString().split('T')[0]
+    const finMes = new Date(anno, mes, 0).toISOString().split('T')[0]
+    const { data: psicoSesiones } = await supabase
+      .from('psych_sessions')
+      .select('session_date, player_id, players(name)')
+      .in('player_id', playerIds)
+      .gte('session_date', inicioMes)
+      .lte('session_date', finMes)
+      .order('session_date')
+
+    const informe = {
+      team_id: team.id,
+      team_name: team.name,
+      mes,
+      anno,
+      temporada,
+      partidos_mes: partidosMes,
+      jugadores,
+      psico_sesiones: (psicoSesiones || []).map((s: any) => ({
+        player_id: s.player_id,
+        nombre: (s.players as any)?.name || '',
+        fecha: s.session_date,
+      })),
+    }
+
+    // Guardar en Supabase
+    const { error: upsertErr } = await supabase.from('monthly_reports').upsert({
+      mes,
+      anyo: anno,
+      team_id: team.id,
+      contenido: informe,
+    }, { onConflict: 'mes,anyo,team_id' })
+    if (upsertErr) console.error('upsert error:', upsertErr.message)
+
+    informes.push({ team: team.name, pj_mes: partidosMes.length })
+  }
+
+  // Enviar push a coordinadores
+  const { data: coordinators } = await supabase
+    .from('push_subscriptions')
+    .select('subscription, user_id')
+
+  const { data: coordUsers } = await supabase
+    .from('app_users')
+    .select('id')
+    .in('role', ['coordinator', 'admin'])
+
+  const coordIds = new Set((coordUsers || []).map((u: any) => u.id))
+  const coordSubs = (coordinators || []).filter((s: any) => coordIds.has(s.user_id))
+
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+  for (const sub of coordSubs) {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/push/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: sub.subscription,
+          title: 'Informe mensual disponible',
+          body: `Informe de ${MESES[mes-1]} ${anno} generado para todos los equipos`,
+          url: '/club?tab=informes'
+        })
+      })
+    } catch (e) { /* silenciar errores de push */ }
+  }
+
+  return NextResponse.json({ ok: true, mes, anno, equipos: informes })
+}
