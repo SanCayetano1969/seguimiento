@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, getSession, clearSession, roleBadge, type Event, type Announcement, type Team } from '@/lib/supabase'
 import BottomNav from '@/components/BottomNav'
+import PasarLista from '@/components/PasarLista'
+import { puedePasarLista } from '@/lib/asistencia'
 import { format, startOfWeek, addDays, addWeeks, isSameDay, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -262,6 +264,15 @@ export default function DashboardPageV2() {
 // ── Tarjeta de evento con botón de solicitar cambio ──────────
 function EventCard({ event, userId, onRequestSent }: { event: Event; userId: string; onRequestSent: () => void }) {
   const [showModal, setShowModal] = useState(false)
+  const [showLista, setShowLista] = useState(false)
+  const [lista, setLista] = useState<{ total: number, presentes: number } | null>(null)
+  const sesion = getSession()
+  const conLista = puedePasarLista(sesion, event)
+  useEffect(() => { if (conLista) cargarLista() }, [event.id])
+  async function cargarLista() {
+    const { data } = await supabase.from('asistencia_entrenos').select('estado').eq('event_id', event.id)
+    setLista(data && data.length ? { total: data.length, presentes: data.filter((r: any) => r.estado === 'presente').length } : null)
+  }
   const [msg, setMsg] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -294,12 +305,21 @@ function EventCard({ event, userId, onRequestSent }: { event: Event; userId: str
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{(event as any).teams.name}</div>
           )}
         </div>
-        <button
-          className="btn btn-ghost btn-sm"
-          style={{ fontSize: 11, padding: '4px 8px', flexShrink: 0 }}
-          onClick={() => setShowModal(true)}
-        >⚠️ Cambio</button>
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 4, flexShrink: 0 }}>
+          {conLista && (
+            <button className={'btn btn-sm ' + (lista ? 'btn-ghost' : 'btn-gold')} style={{ fontSize: 11, padding: '4px 8px' }}
+              onClick={() => setShowLista(true)}>
+              📋 {lista ? lista.presentes + '/' + lista.total : 'Lista'}
+            </button>
+          )}
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ fontSize: 11, padding: '4px 8px' }}
+            onClick={() => setShowModal(true)}
+          >⚠️ Cambio</button>
+        </div>
       </div>
+      {showLista && <PasarLista event={event} onClose={() => setShowLista(false)} onSaved={cargarLista} />}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
