@@ -486,6 +486,11 @@ function PartidoInner() {
     for (const pid in live.players) {
       const lp = live.players[pid]
       const p = pById(pid)
+      // Convocado que no ha llegado a jugar: no se crea fila (no cuenta como partido jugado).
+      // Si ya tenía fila de un guardado anterior, se actualiza para que quede a 0.
+      const sinJugar = !lp.titular && lp.seconds < 1 && lp.quarters.length === 0 &&
+        !STAT_DEFS.some(sd => (lp.stats[sd.k] || 0) > 0)
+      if (sinJugar && !exMap[pid]) continue
       const payload: any = {
         match_id: live.matchId, player_id: pid, team_id: teamId, created_by: session.id,
         titular: lp.titular, minutos: Math.floor(lp.seconds / 60),
