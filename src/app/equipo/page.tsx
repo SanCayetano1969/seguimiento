@@ -15,6 +15,8 @@ import PlantillaDropdown from '@/components/equipo/PlantillaDropdown'
 import EstadisticasEquipo from '@/components/equipo/EstadisticasEquipo'
 import Convocatorias from '@/components/equipo/Convocatorias'
 import { sumarStats, totalesPorJugador, esPortero } from '@/lib/estadisticas'
+import AsistenciaJugador from '@/components/equipo/AsistenciaJugador'
+import AsistenciaEquipo from '@/components/equipo/AsistenciaEquipo'
 
 const CRITERIA = {
   fisica: ['Velocidad','Resistencia','Fuerza','Coordinacion','Agilidad','Reaccion'],
@@ -1105,6 +1107,8 @@ function EquipoContent() {
               )
             })()}
 
+            <AsistenciaJugador playerId={selected.id} />
+
             {canMeetings && (
               <div className="card" style={{ marginBottom: 12 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, color: 'var(--gold)' }}>Historial reuniones</div>
@@ -1878,6 +1882,9 @@ function EquipoContent() {
 
       {/* ESTADISTICAS EQUIPO */}
       {team && <EstadisticasEquipo team={team} matches={teamMatches} players={players} statsJugadores={statsEquipo} invitados={invitadosEquipo} />}
+
+      {/* ASISTENCIA ENTRENOS */}
+      {team && <AsistenciaEquipo team={team} players={players} />}
 
       {/* CONVOCATORIAS */}
       {team && <Convocatorias team={team} players={players} matches={teamMatches} />}
