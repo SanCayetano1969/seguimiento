@@ -1,8 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase, getSession } from '@/lib/supabase'
+import { sumarStats, totalesPorJugador } from '@/lib/estadisticas'
 
-interface Props { team: any; matches: any[] }
+// statsJugadores: filas de player_match_stats de los partidos del equipo (incluye invitados de otros equipos).
+// Las tarjetas de cada partido salen de ahí; la cuenta manual solo se usa en partidos sin fichas de jugadores.
+interface Props { team: any; matches: any[]; players?: any[]; statsJugadores?: any[]; invitados?: any[] }
+
+const TIPO_CORTO: Record<string, string> = { amistoso: 'AMIST', copa: 'COPA', torneo: 'TORNEO', otro: 'OTRO' }
+const etiquetaPartido = (m: any) => (!m.tipo || m.tipo === 'liga') ? (m.jornada ? 'J' + m.jornada : 'Liga') : (TIPO_CORTO[m.tipo] || m.tipo.toUpperCase())
 
 const PERIODOS_F8_INF = ['1º cuarto','2º cuarto','3º cuarto','4º cuarto']
 const PERIODOS_RESTO  = ['0-15','15-30','30-45','45-60','60-75','75-90']
@@ -76,7 +82,7 @@ function GolDetalle({ goles, onChange, periodos }: { goles: any[], onChange: (g:
   )
 }
 
-export default function EstadisticasEquipo({ team, matches }: Props) {
+export default function EstadisticasEquipo({ team, matches, players = [], statsJugadores = [], invitados = [] }: Props) {
   const session = getSession()
   const canEdit = session?.role === 'admin' || session?.role === 'coordinator' || session?.role === 'coach'
   const [open, setOpen] = useState(false)
@@ -84,10 +90,19 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
   const [forms, setForms] = useState<Record<string, any>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const periodos = isF8oInfantil(team) ? PERIODOS_F8_INF : PERIODOS_RESTO
-  const partidos = matches.filter(m => m.resultado_propio !== null)
+  // Filas de jugadores agrupadas por partido
+  const filasPorPartido: Record<string, any[]> = {}
+  statsJugadores.forEach((s: any) => { (filasPorPartido[s.match_id] = filasPorPartido[s.match_id] || []).push(s) })
+  const partidos = matches.filter(m => m.resultado_propio != null || (filasPorPartido[m.id] || []).length > 0)
+  // Tarjetas y goles de un partido según las fichas (null si no hay fichas)
+  const deFichas = (matchId: string) => {
+    const f = filasPorPartido[matchId] || []
+    return f.length ? sumarStats(f) : null
+  }
+  const idsPartidos = partidos.map(m => m.id).join(',')
 
   useEffect(() => {
-    if (!open || partidos.length === 0) return
+    if (partidos.length === 0) return
     const ids = partidos.map(m => m.id)
     supabase.from('match_stats_team').select('*').in('match_id', ids)
       .then(({ data }) => {
@@ -108,7 +123,7 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
         })
         setForms(initForms)
       })
-  }, [open])
+  }, [idsPartidos])
 
   function updateForm(matchId: string, key: string, val: any) {
     setForms(f => ({ ...f, [matchId]: { ...f[matchId], [key]: val } }))
@@ -117,10 +132,13 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
   async function saveMatch(matchId: string) {
     setSaving(matchId)
     const f = forms[matchId]
+    const fichas = deFichas(matchId)
     const payload = {
       match_id: matchId, team_id: team.id,
       goles_marcados: f.goles_marcados, goles_encajados: f.goles_encajados,
-      tarjetas_amarillas: f.amarillas, tarjetas_rojas: f.rojas,
+      // con fichas de jugadores, las tarjetas son las suyas (así cuadran el informe y el PDF)
+      tarjetas_amarillas: fichas ? fichas.amarillas : f.amarillas,
+      tarjetas_rojas: fichas ? fichas.rojas : f.rojas,
       goles_marcados_detalle: f.detalle_marcados,
       goles_encajados_detalle: f.detalle_encajados,
       updated_at: new Date().toISOString(),
@@ -151,8 +169,8 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
       ...acc,
       gf: acc.gf + (s?.goles_marcados ?? m.resultado_propio ?? 0),
       gc: acc.gc + (s?.goles_encajados ?? m.resultado_rival ?? 0),
-      am: acc.am + (s?.tarjetas_amarillas ?? 0),
-      ro: acc.ro + (s?.tarjetas_rojas ?? 0),
+      am: acc.am + (deFichas(m.id)?.amarillas ?? s?.tarjetas_amarillas ?? 0),
+      ro: acc.ro + (deFichas(m.id)?.rojas ?? s?.tarjetas_rojas ?? 0),
     }
   }, { gf: 0, gc: 0, am: 0, ro: 0, periodos: {} as Record<string,number>, zona_remate: {} as Record<string,number>, tipo_remate: {} as Record<string,number>, tipo_jugada: {} as Record<string,number>, zona_inicio: {} as Record<string,number>, toques: {} as Record<string,number> })
 
@@ -226,20 +244,71 @@ export default function EstadisticasEquipo({ team, matches }: Props) {
               )}
             </div>
           )}
+          {statsJugadores.length > 0 && (() => {
+            const nombres: Record<string, any> = {}
+            players.forEach((p: any) => { nombres[p.id] = p })
+            invitados.forEach((p: any) => { if (!nombres[p.id]) nombres[p.id] = p })
+            const porJugador = Object.entries(totalesPorJugador(statsJugadores))
+              .sort((a, b) => (b[1].goles - a[1].goles) || (b[1].minutos - a[1].minutos))
+            const hayParadas = porJugador.some(([, t]) => t.paradas > 0)
+            const th = { fontSize: 10, color: 'var(--text-muted)', fontWeight: 700 as const, padding: '4px 3px', textAlign: 'center' as const }
+            const td = { fontSize: 12, padding: '4px 3px', textAlign: 'center' as const, borderTop: '1px solid var(--border)' }
+            return (
+              <details style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                <summary style={{ fontSize: 12, fontWeight: 700, color: 'var(--gold)', cursor: 'pointer' }}>Por jugador ({porJugador.length})</summary>
+                <div style={{ overflowX: 'auto', marginTop: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead><tr>
+                      <th style={{ ...th, textAlign: 'left' }}>Jugador</th>
+                      <th style={th}>PJ</th><th style={th}>MIN</th><th style={th}>⚽</th><th style={th}>🅰️</th>
+                      <th style={th}>🟨</th><th style={th}>🟥</th>{hayParadas && <th style={th}>🧤</th>}
+                    </tr></thead>
+                    <tbody>
+                      {porJugador.map(([pid, t]) => {
+                        const p = nombres[pid]
+                        return (
+                          <tr key={pid}>
+                            <td style={{ ...td, textAlign: 'left' }}>
+                              {p?.dorsal != null ? <b style={{ color: 'var(--accent)' }}>#{p.dorsal} </b> : null}{p?.name || '—'}
+                              {p?._equipo && <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--gold)', background: 'var(--surface2)', borderRadius: 5, padding: '1px 5px', marginLeft: 5 }}>{p._equipo}</span>}
+                            </td>
+                            <td style={td}>{t.pj}</td><td style={td}>{t.minutos}</td><td style={td}>{t.goles}</td><td style={td}>{t.asistencias}</td>
+                            <td style={td}>{t.amarillas}</td><td style={td}>{t.rojas}</td>{hayParadas && <td style={td}>{t.paradas}</td>}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )
+          })()}
           {partidos.map(m => {
             const f = forms[m.id] || {}
+            const fichas = deFichas(m.id)
             const rival = m.local ? 'San Cayetano vs ' + m.rival : m.rival + ' vs San Cayetano'
             return (
               <div key={m.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>J{m.jornada} - {rival}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>{m.resultado_propio}-{m.resultado_rival}</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{etiquetaPartido(m)} - {rival}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: fichas ? 4 : 10 }}>{m.resultado_propio != null ? m.resultado_propio + '-' + m.resultado_rival : 'Sin resultado'}</div>
+                {fichas && m.resultado_propio != null && fichas.goles !== m.resultado_propio && (
+                  <div style={{ fontSize: 11, color: '#F6AD55', marginBottom: 8 }}>
+                    ⚠️ Goles apuntados en las fichas: {fichas.goles} de {m.resultado_propio}. Revisa las estadísticas de los jugadores (también los invitados).
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
                   {[
                     { key: 'goles_marcados',  label: 'GF', color: '#22c55e' },
                     { key: 'goles_encajados', label: 'GC', color: '#ef4444' },
                     { key: 'amarillas',       label: 'Amarillas', color: '#eab308' },
                     { key: 'rojas',           label: 'Rojas', color: '#ef4444' },
-                  ].map(({ key, label, color }) => (
+                  ].map(({ key, label, color }) => fichas && (key === 'amarillas' || key === 'rojas') ? (
+                    <div key={key} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
+                      <div style={{ fontWeight: 800, fontSize: 15, color, lineHeight: '22px' }}>{key === 'amarillas' ? fichas.amarillas : fichas.rojas}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>de las fichas</div>
+                    </div>
+                  ) : (
                     <div key={key} style={{ textAlign: 'center' }}>
                       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
