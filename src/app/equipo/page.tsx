@@ -307,6 +307,7 @@ function EquipoContent() {
   const [psychs, setPsychs] = useState<any[]>([])
   const [psychSessions, setPsychSessions] = useState<any[]>([])
   const [addingSession, setAddingSession] = useState(false)
+  const [sessionDate, setSessionDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('stats')
   const [evalForm, setEvalForm] = useState<any>({})
@@ -605,15 +606,22 @@ function EquipoContent() {
 
   async function addPsychSession() {
     if (!selected || !session) return
+    const hoy = format(new Date(), 'yyyy-MM-dd')
+    const fecha = sessionDate || hoy
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { alert('Fecha no válida'); return }
+    if (fecha > hoy) { alert('La fecha de la sesión no puede ser posterior a hoy'); return }
+    if (psychSessions.some((s: any) => s.session_date === fecha) &&
+        !confirm('Ya hay una sesión registrada el ' + format(parseISO(fecha), 'd MMM yyyy', { locale: es }) + '. ¿Registrar otra ese mismo día?')) return
     setAddingSession(true)
-    const today = new Date().toISOString().split('T')[0]
-    await supabase.from('psych_sessions').insert({
+    const { error } = await supabase.from('psych_sessions').insert({
       player_id: selected.id,
-      session_date: today,
+      session_date: fecha,
       created_by: session.id
     })
+    if (error) alert('No se pudo registrar la sesión: ' + error.message)
     const { data: pss } = await supabase.from('psych_sessions').select('*').eq('player_id', selected.id).order('session_date', { ascending: false })
     setPsychSessions(pss || [])
+    setSessionDate(hoy)
     setAddingSession(false)
   }
 
@@ -1053,19 +1061,24 @@ function EquipoContent() {
             {canPsych && (
               <div className="card">
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--gold)' }}>Sesiones psicólogo</div>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ marginBottom: 12 }}
-                  disabled={addingSession}
-                  onClick={addPsychSession}>
-                  {addingSession ? 'Registrando...' : '+ Registrar sesión hoy'}
-                </button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                  <input type="date" className="input" style={{ flex: 1, minWidth: 0 }}
+                    value={sessionDate} max={format(new Date(), 'yyyy-MM-dd')}
+                    onChange={e => setSessionDate(e.target.value)} />
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ whiteSpace: 'nowrap' as const }}
+                    disabled={addingSession || !sessionDate}
+                    onClick={addPsychSession}>
+                    {addingSession ? 'Registrando...' : '+ Registrar sesión'}
+                  </button>
+                </div>
                 {psychSessions.length === 0
                   ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin sesiones registradas</div>
                   : <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 4 }}>
                       {psychSessions.map((s: any) => (
                         <div key={s.id} style={{ fontSize: 13, color: 'var(--text)', padding: '4px 8px', background: 'var(--surface2)', borderRadius: 6 }}>
-                          {new Date(s.session_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                          {parseISO(s.session_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </div>
                       ))}
                     </div>
@@ -1500,20 +1513,26 @@ function EquipoContent() {
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
               Registro de sesiones con el psicólogo. Solo se guarda la fecha por protección de datos.
             </div>
-            <button
-              className="btn btn-gold btn-sm"
-              style={{ marginBottom: 16 }}
-              disabled={addingSession}
-              onClick={addPsychSession}>
-              {addingSession ? 'Registrando...' : '+ Registrar sesión hoy'}
-            </button>
+            <label className="label">Fecha de la sesión</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+              <input type="date" className="input" style={{ flex: 1, minWidth: 0 }}
+                value={sessionDate} max={format(new Date(), 'yyyy-MM-dd')}
+                onChange={e => setSessionDate(e.target.value)} />
+              <button
+                className="btn btn-gold btn-sm"
+                style={{ whiteSpace: 'nowrap' as const }}
+                disabled={addingSession || !sessionDate}
+                onClick={addPsychSession}>
+                {addingSession ? 'Registrando...' : '+ Registrar sesión'}
+              </button>
+            </div>
             {psychSessions.length === 0
               ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sin sesiones registradas</div>
               : <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 6 }}>
                   {psychSessions.map((s: any) => (
                     <div key={s.id} style={{ fontSize: 13, color: 'var(--text)', padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 16 }}>🗓️</span>
-                      {new Date(s.session_date).toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                      {parseISO(s.session_date).toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
                     </div>
                   ))}
                 </div>
