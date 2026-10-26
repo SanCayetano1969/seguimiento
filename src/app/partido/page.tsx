@@ -27,6 +27,16 @@ const blankStats = () => { const o: any = {}; STAT_DEFS.forEach(s => o[s.k] = 0)
 const isGK = (p: any) => (p?.position || '').toLowerCase().includes('portero')
 
 type LiveP = { onField: boolean; titular: boolean; seconds: number; quarters: number[]; stats: any }
+// Suceso del partido. k = estadística sumada (goles, amarillas…); out = jugador que salió en un cambio.
+// Los partidos a medias guardados antes no traen k/out: se deducen del texto al deshacer.
+type LiveEvent = { min: number; pid: string; txt: string; per?: number; k?: string; out?: string }
+
+function eventKey(e: LiveEvent): string | undefined {
+  if (e.k) return e.k
+  const def = STAT_DEFS.find(d => e.txt.startsWith(`${d.icon} ${d.lb.replace('.', '')} ·`))
+  return def?.k
+}
+
 type LiveState = {
   matchId: string
   players: Record<string, LiveP>
@@ -36,7 +46,7 @@ type LiveState = {
   minper: number
   scP: number
   scR: number
-  events: { min: number; pid: string; txt: string; per?: number }[]
+  events: LiveEvent[]
   periodStart?: number      // segundos totales al empezar el periodo actual (el crono del periodo arranca en 0)
   periodTimes?: number[]    // duración real de cada periodo ya cerrado (p. ej. 1º cuarto 19:05)
 }
@@ -370,8 +380,13 @@ function PartidoInner() {
       if (changed > 0) {
         const def = STAT_DEFS.find(s => s.k === k)!
         const nm = pById(pid)?.name || ''
-        events = [{ min: Math.floor((prev.elapsed - (prev.periodStart || 0)) / 60), per: prev.period, pid, txt: `${def.icon} ${def.lb.replace('.', '')} · ${nm}` }, ...prev.events]
+        events = [{ min: Math.floor((prev.elapsed - (prev.periodStart || 0)) / 60), per: prev.period, pid, k, txt: `${def.icon} ${def.lb.replace('.', '')} · ${nm}` }, ...prev.events]
         if (k === 'goles') scP = prev.scP + 1
+      } else if (changed < 0) {
+        // quitar con «−» también borra el suceso más reciente de ese jugador y esa estadística
+        const idx = prev.events.findIndex(e => e.pid === pid && eventKey(e) === k)
+        if (idx >= 0) events = prev.events.filter((_, i) => i !== idx)
+        if (k === 'goles') scP = Math.max(0, prev.scP + changed)   // y del marcador
       }
       return { ...prev, players, events, scP }
     })
@@ -404,13 +419,61 @@ function PartidoInner() {
       players[outId] = { ...players[outId], onField: false }
       players[inId] = { ...players[inId], onField: true }
       const nmIn = pById(inId)?.name || '', nmOut = pById(outId)?.name || ''
-      const events = [{ min: Math.floor((prev.elapsed - (prev.periodStart || 0)) / 60), per: prev.period, pid: inId, txt: `🔄 Cambio · ${nmIn} por ${nmOut}` }, ...prev.events]
+      const events = [{ min: Math.floor((prev.elapsed - (prev.periodStart || 0)) / 60), per: prev.period, pid: inId, out: outId, txt: `🔄 Cambio · ${nmIn} por ${nmOut}` }, ...prev.events]
       return { ...prev, players, events }
     })
     setSubOut(null); setSubInId(null)
   }
+  // Deshacer un suceso: revierte de verdad lo que hizo (estadística, marcador o cambio), no solo la línea.
+  // Jugador que salió en un cambio. Los sucesos antiguos no lo guardan: se busca por el nombre del texto.
+  function subOutId(e: LiveEvent, players: Record<string, LiveP>): string | undefined {
+    if (e.out) return e.out
+    const nmOut = e.txt.split(' por ').slice(1).join(' por ').trim()
+    return nmOut ? Object.keys(players).find(id => id !== e.pid && (pById(id)?.name || '') === nmOut) : undefined
+  }
   function undoEvent(idx: number) {
-    setLive(prev => prev ? { ...prev, events: prev.events.filter((_, i) => i !== idx) } : prev)
+    const ev = live?.events[idx]
+    if (!ev) return
+    if (!confirm('¿Deshacer «' + ev.txt + '»?')) return
+    const esCambio = ev.txt.startsWith('🔄')
+    if (esCambio) flush()   // los minutos jugados hasta ahora se quedan como están (son tiempo real)
+    // el aviso se calcula con el estado actual (el updater de setLive puede ejecutarse más tarde)
+    let aviso = ''
+    if (esCambio) {
+      const outId = subOutId(ev, live!.players)
+      const inP = live!.players[ev.pid], outP = outId ? live!.players[outId] : undefined
+      if (!(inP && outP && inP.onField && !outP.onField)) aviso = 'Cambio quitado de la lista, pero no se ha podido devolver al campo: revisa la alineación'
+    } else if (!eventKey(ev) || !live!.players[ev.pid]) {
+      aviso = 'Suceso quitado de la lista; revisa la estadística del jugador en DETALLE'
+    }
+    setLive(prev => {
+      if (!prev) return prev
+      const e = prev.events[idx]
+      if (!e) return prev
+      const events = prev.events.filter((_, i) => i !== idx)
+      const players = { ...prev.players }
+      let scP = prev.scP
+      if (e.txt.startsWith('🔄')) {
+        const outId = subOutId(e, players)
+        const inP = players[e.pid], outP = outId ? players[outId] : undefined
+        if (inP && outP && inP.onField && !outP.onField) {
+          players[e.pid] = { ...inP, onField: false }
+          players[outId!] = { ...outP, onField: true }
+        }
+      } else {
+        const k = eventKey(e)
+        const lp = players[e.pid]
+        if (k && lp) {
+          const v = lp.stats[k] || 0
+          if (v > 0) {
+            players[e.pid] = { ...lp, stats: { ...lp.stats, [k]: v - 1 } }
+            if (k === 'goles') scP = Math.max(0, prev.scP - 1)
+          }
+        }
+      }
+      return { ...prev, players, events, scP }
+    })
+    showToast(aviso || 'Deshecho')
   }
 
   /* ---------- Guardar ---------- */
@@ -622,7 +685,7 @@ function PartidoInner() {
             <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.6px', margin: '4px 2px 10px' }}>En el campo</div>
             {fieldPlayers.map(p => (
               <PlayerRow key={p.id} p={p} lp={live.players[p.id]} minLbl={minLbl}
-                onQuick={(k) => bump(p.id, k, 1)} onGoal={() => { bump(p.id, 'goles', 1) }}
+                onQuick={(k) => bump(p.id, k, 1)}
                 onDetail={() => setDetailId(p.id)} onSub={() => setSubOut(p.id)} />
             ))}
           </div>
@@ -760,7 +823,7 @@ function Stepper2({ onPlus, onMinus }: any) {
     </div>
   )
 }
-function PlayerRow({ p, lp, minLbl, onQuick, onGoal, onDetail, onSub }: any) {
+function PlayerRow({ p, lp, minLbl, onQuick, onDetail, onSub }: any) {
   const gk = isGK(p)
   const quick = gk
     ? [{ k: 'paradas', ic: '🧤', lb: 'PARADA' }, { k: 'goles', ic: '⚽', lb: 'GOL', goal: true }, { k: 'amarillas', ic: '🟨', lb: 'TARJ.' }]
@@ -779,7 +842,7 @@ function PlayerRow({ p, lp, minLbl, onQuick, onGoal, onDetail, onSub }: any) {
       </div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
         {quick.map(q => (
-          <button key={q.k} style={qbtn} onClick={() => { onQuick(q.k); if (q.goal) onGoal() }}>
+          <button key={q.k} style={qbtn} onClick={() => onQuick(q.k)}>
             <span>{q.ic}</span><span style={lbl}>{q.lb}</span>
             {lp.stats[q.k] ? <span style={{ position: 'absolute', top: -6, right: -6, background: 'var(--gold)', color: 'var(--navy-dark, #0d1f3c)', fontSize: 10, fontWeight: 900, borderRadius: '50%', minWidth: 17, height: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{lp.stats[q.k]}</span> : null}
           </button>
