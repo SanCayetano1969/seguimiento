@@ -23,7 +23,7 @@ export type Team = {
   id: string
   name: string
   category: string
-  modalidad: 'F11' | 'F8'
+  modalidad: 'F11' | 'F8' | 'F7'
   season: string
   active: boolean
 }
