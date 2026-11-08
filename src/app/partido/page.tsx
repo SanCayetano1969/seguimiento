@@ -74,8 +74,11 @@ function PartidoInner() {
   const [creating, setCreating] = useState(false)
 
   // --- configuración ---
-  const mod11 = (team?.modalidad || '').includes('11')
-  const onFieldNeed = mod11 ? 11 : 8
+  // Jugadores en el campo según la modalidad del equipo (F11 / F8 / F7). Por defecto 8.
+  const onFieldNeed = (() => {
+    const n = parseInt(String(team?.modalidad || '').replace(/\D/g, ''), 10)
+    return [7, 8, 11].includes(n) ? n : 8
+  })()
   const [periods, setPeriods] = useState(2)
   const [minper, setMinper] = useState(25)
 
