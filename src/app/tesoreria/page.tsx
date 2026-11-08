@@ -18,6 +18,8 @@ export default function TesoreriaPage() {
   const [teams, setTeams] = useState<any[]>([])
   const [teamFees, setTeamFees] = useState<Record<string,number>>({})
   const [players, setPlayers] = useState<Record<string,any[]>>({})
+  // Bajas (active=false) con pagos de la temporada: su dinero sigue contando como «ficha extra» del equipo
+  const [bajasConPago, setBajasConPago] = useState<Record<string, any[]>>({})
   const [plans, setPlans] = useState<Record<string,any>>({})
   const [payments, setPayments] = useState<Record<string,any[]>>({})
   const [loading, setLoading] = useState(true)
@@ -67,6 +69,7 @@ export default function TesoreriaPage() {
       supabase.from('tournament_players').select('*'),
       supabase.from('tournament_payments').select('*'),
     ])
+    const { data: bajasData } = await supabase.from('players').select('*').eq('active', false)
     setTeams(teamsData || [])
     const feesMap: Record<string,number> = {}
     ;(feesData || []).forEach((f: any) => { feesMap[f.team_id] = f.importe })
@@ -86,6 +89,12 @@ export default function TesoreriaPage() {
       paymentsMap[p.player_id].push(p)
     })
     setPayments(paymentsMap)
+    const bajasMap: Record<string,any[]> = {}
+    ;(bajasData || []).forEach((p: any) => {
+      const pagado = (paymentsMap[p.id] || []).reduce((s: number, x: any) => s + (x.cantidad || 0), 0)
+      if (pagado > 0) (bajasMap[p.team_id] ||= []).push(p)
+    })
+    setBajasConPago(bajasMap)
     setSponsors(sponsorsData || [])
     setTournaments(tournamentsData || [])
     const ttMap: Record<string,string[]> = {}
@@ -127,6 +136,11 @@ export default function TesoreriaPage() {
 
   function getPlayerPaid(playerId: string) {
     return (payments[playerId] || []).reduce((sum: number, p: any) => sum + (p.cantidad || 0), 0)
+  }
+
+  // Dinero cobrado a jugadores dados de baja que no se devuelve («fichas extra» del equipo)
+  function getExtraEquipo(teamId: string) {
+    return (bajasConPago[teamId] || []).reduce((s: number, p: any) => s + getPlayerPaid(p.id), 0)
   }
 
   async function saveFee(teamId: string) {
@@ -242,11 +256,11 @@ export default function TesoreriaPage() {
                 return sum + teamPlayers.reduce((s, p) => {
                   const cuota = plans[p.id]?.importe_personalizado ?? teamFees[team.id] ?? 0
                   return s + cuota
-                }, 0)
+                }, 0) + getExtraEquipo(team.id)
               }, 0)
               const totalCobrado = teams.reduce((sum, team) => {
                 const teamPlayers = players[team.id] || []
-                return sum + teamPlayers.reduce((s, p) => s + getPlayerPaid(p.id), 0)
+                return sum + teamPlayers.reduce((s, p) => s + getPlayerPaid(p.id), 0) + getExtraEquipo(team.id)
               }, 0)
               const totalPendiente = totalCuotas - totalCobrado
               return totalCuotas > 0 ? (
@@ -271,6 +285,8 @@ export default function TesoreriaPage() {
               const paid = teamPlayers.filter(p => getPlayerStatus(p, team.id) === 'pagado').length
               const partial = teamPlayers.filter(p => getPlayerStatus(p, team.id) === 'parcial').length
               const pending = teamPlayers.filter(p => getPlayerStatus(p, team.id) === 'pendiente').length
+              const bajasEquipo = bajasConPago[team.id] || []
+              const extraEquipo = getExtraEquipo(team.id)
 
               return (
                 <div key={team.id} style={{ marginBottom: 10, background: 'var(--surface)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
@@ -285,17 +301,19 @@ export default function TesoreriaPage() {
                         {teamPlayers.length > 0 && <span style={{ color: '#22c55e' }}>✅ {paid}</span>}
                         {partial > 0 && <span style={{ color: '#f59e0b' }}>⚠️ {partial}</span>}
                         {pending > 0 && <span style={{ color: '#ef4444' }}>❌ {pending}</span>}
+                        {extraEquipo > 0 && <span style={{ color: '#0ea5e9' }}>💶 {bajasEquipo.length} ficha{bajasEquipo.length > 1 ? 's' : ''} extra</span>}
                       </div>
                     </div>
                     {(() => {
-                      const totalEquipo = teamPlayers.reduce((s, p) => s + (plans[p.id]?.importe_personalizado ?? fee ?? 0), 0)
-                      const cobradoEquipo = teamPlayers.reduce((s, p) => s + getPlayerPaid(p.id), 0)
+                      const totalEquipo = teamPlayers.reduce((s, p) => s + (plans[p.id]?.importe_personalizado ?? fee ?? 0), 0) + extraEquipo
+                      const cobradoEquipo = teamPlayers.reduce((s, p) => s + getPlayerPaid(p.id), 0) + extraEquipo
                       const pendienteEquipo = totalEquipo - cobradoEquipo
                       return totalEquipo > 0 ? (
                         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total: <b style={{ color: 'var(--text)' }}>{totalEquipo.toFixed(0)}€</b></span>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>• Cobrado: <b style={{ color: '#22c55e' }}>{cobradoEquipo.toFixed(0)}€</b></span>
                           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>• Pendiente: <b style={{ color: pendienteEquipo > 0 ? '#ef4444' : '#22c55e' }}>{pendienteEquipo.toFixed(0)}€</b></span>
+                          {extraEquipo > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>• Extra: <b style={{ color: '#0ea5e9' }}>{extraEquipo.toFixed(0)}€</b></span>}
                         </div>
                       ) : null
                     })()}
@@ -325,7 +343,10 @@ export default function TesoreriaPage() {
                               cuota: q,
                               pendiente: Math.max(0, q - paid),
                             }
-                          }),
+                          }).concat(bajasEquipo.map(p => ({
+                            dorsal: p.dorsal || '', nombre: p.name, estado: 'Baja · ficha extra',
+                            pagado: getPlayerPaid(p.id), cuota: getPlayerPaid(p.id), pendiente: 0,
+                          }))),
                           extraColumns: [
                             { header: 'Num. pagos', key: 'nPagos' },
                             { header: 'Metodo', key: 'metodo' },
@@ -347,7 +368,16 @@ export default function TesoreriaPage() {
                               metodo: pags.map((pp:any) => pp.metodo).join(', '),
                               cobrador: pags.map((pp:any) => pp.cobrador || '').filter(Boolean).join(', '),
                             }
-                          }),
+                          }).concat(bajasEquipo.map(p => {
+                            const pags = payments[p.id] || []
+                            return {
+                              dorsal: p.dorsal || '', nombre: p.name, estado: 'Baja · ficha extra',
+                              pagado: getPlayerPaid(p.id), cuota: getPlayerPaid(p.id), pendiente: 0,
+                              nPagos: pags.length,
+                              metodo: pags.map((pp:any) => pp.metodo).join(', '),
+                              cobrador: pags.map((pp:any) => pp.cobrador || '').filter(Boolean).join(', '),
+                            }
+                          })),
                         }}
                         hasExtra={true}
                         extraLabel="Con detalle de pagos"
@@ -410,6 +440,23 @@ export default function TesoreriaPage() {
                           </div>
                         )
                       })}
+                      {bajasEquipo.length > 0 && (
+                        <div style={{ padding: '8px 14px 4px', fontSize: 11, fontWeight: 700, color: '#0ea5e9', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+                          💶 Fichas extra · bajas con pago (no se devuelve)
+                        </div>
+                      )}
+                      {bajasEquipo.map(player => (
+                        <div key={player.id} style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid var(--border)', cursor: 'pointer', opacity: 0.85 }}
+                          onClick={() => { setSelectedPlayer(player); setSelectedTeam(team) }}>
+                          <span style={{ fontSize: 18 }}>💶</span>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{player.name}</span>
+                            <span style={{ fontSize: 10, color: '#0369a1', marginLeft: 6, background: '#e0f2fe', padding: '1px 5px', borderRadius: 4 }}>baja</span>
+                            {plans[player.id]?.nota_cuota && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{plans[player.id].nota_cuota}</div>}
+                          </div>
+                          <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#0ea5e9' }}>{getPlayerPaid(player.id)}€</div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
